@@ -1,0 +1,31 @@
+name: Verifier tests (nightly)
+
+on:
+  schedule:
+    - cron: "0 3 * * *" # 03:00 UTC daily
+  workflow_dispatch:
+
+jobs:
+  verify:
+    name: Dafny / Lean / Verus sampled validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip wheel
+          pip install -e ".[dev]"
+
+      - name: Install verifiers
+        run: bash scripts/install_verifiers.sh
+
+      - name: Sampled witness validation
+        run: python scripts/04_validate_witnesses.py --sample 100

@@ -1,0 +1,102 @@
+"""Shared machinery for the four attack generators.
+
+Every attack: send a system + user prompt to an LLM, recover a strict JSON
+object, validate the required keys, and normalise it into an
+:class:`AttackResult`. Centralising this keeps the four pattern modules to
+just their prompt text and a thin wrapper.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
+from trojanspec.schemas import AttackPattern, Language
+from trojanspec.utils.json_extract import JSONExtractionError, extract_json
+from trojanspec.utils.llm_clients import LLMClient
+from trojanspec.utils.logging import get_logger
+
+log = get_logger("attacks")
+
+
+@dataclass
+class AttackResult:
+    """Normalised output of an attack generator."""
+
+    attack_pattern: AttackPattern
+    trojan_spec: str
+    trojan_witness: str
+    explanation: str
+    witness_bug_explanation: str
+    elicitor_model: str
+    elicitor_response_full: str
+    extra: dict = field(default_factory=dict)
+
+    def as_dict(self) -> dict:
+        return {
+            "attack_pattern": self.attack_pattern,
+            "trojan_spec": self.trojan_spec,
+            "trojan_witness": self.trojan_witness,
+            "explanation": self.explanation,
+            "witness_bug_explanation": self.witness_bug_explanation,
+            "elicitor_model": self.elicitor_model,
+            "elicitor_response_full": self.elicitor_response_full,
+            **self.extra,
+        }
+
+
+def build_user_prompt(language: Language, nl: str, original_spec: str, ask: str) -> str:
+    """Construct the user turn. Plain concatenation - never ``str.format`` -
+    so braces in specs/JSON examples can never break templating."""
+    return (
+        f"Target language: {language.value}\n"
+        f"Natural-language requirement:\n---\n{nl}\n---\n\n"
+        f"Original (honest) specification:\n"
+        f"```{language.value}\n{original_spec}\n```\n\n"
+        f"{ask}\n"
+        f"Return STRICT JSON only, with no prose before or after the object."
+    )
+
+
+class AttackGenerationError(RuntimeError):
+    """Raised when the model output cannot be turned into an AttackResult."""
+
+
+async def run_attack(
+    *,
+    client: LLMClient,
+    attack_pattern: AttackPattern,
+    system_prompt: str,
+    user_prompt: str,
+    explanation_key: str,
+    extra_keys: tuple[str, ...] = (),
+) -> AttackResult:
+    """Execute one attack round and normalise the result.
+
+    ``explanation_key`` is the pattern-specific JSON field carrying the
+    rationale (e.g. ``"vacuity_explanation"``). ``extra_keys`` are optional
+    fields preserved into :attr:`AttackResult.extra`.
+    """
+    response = await client.complete(system_prompt, user_prompt)
+    try:
+        parsed = extract_json(response.text)
+    except JSONExtractionError as exc:
+        log.warning("attack=%s: JSON extraction failed: %s", attack_pattern.value, exc)
+        raise AttackGenerationError(str(exc)) from exc
+
+    missing = [k for k in ("trojan_spec", "trojan_witness") if not parsed.get(k)]
+    if missing:
+        raise AttackGenerationError(
+            f"attack={attack_pattern.value}: response missing required keys {missing}"
+        )
+
+    extra = {k: parsed.get(k, "") for k in extra_keys}
+    return AttackResult(
+        attack_pattern=attack_pattern,
+        trojan_spec=str(parsed["trojan_spec"]),
+        trojan_witness=str(parsed["trojan_witness"]),
+        explanation=str(parsed.get(explanation_key, "")),
+        witness_bug_explanation=str(parsed.get("witness_bug_explanation", "")),
+        elicitor_model=response.model,
+        elicitor_response_full=response.text,
+        extra=extra,
+    )

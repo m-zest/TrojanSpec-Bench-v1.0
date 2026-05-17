@@ -1,0 +1,22 @@
+Subject: Coordinated disclosure: trojan-spec class affecting <PROJECT>
+
+Hello <MAINTAINER>,
+
+I am Mohammad Zeeshan. As part of independent research on adversarial
+specification elicitation in AI-assisted formal verification, I have
+identified a potential weakness in <PROJECT>'s <COMPONENT>.
+
+Summary: <one-paragraph description of the bug class>
+Affected versions: <list>
+Reproducer: <attached patch / link to a private gist>
+
+I am following coordinated disclosure: this report stays private until
+<DATE + 90 days> or until you confirm a fix, whichever comes first. I will
+publish the corresponding trojan-witness benchmark entry only after the fix
+is released.
+
+Please confirm receipt and let me know your preferred disclosure timeline.
+
+Best regards,
+Mohammad Zeeshan
+hdglit@inf.elte.hu

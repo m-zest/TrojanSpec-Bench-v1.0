@@ -1,0 +1,232 @@
+"""Unified LLM client interface.
+
+Backends (no single proprietary lock-in):
+
+* **OpenRouter** - one key, many model families (Llama, Claude, GPT-4o, DeepSeek).
+* **Anthropic**  - Claude as elicitor / monitor.
+* **OpenAI**     - GPT-4o as elicitor / monitor.
+* **Ollama**     - local models (e.g. ``qwen2.5:32b``) on your own GPU, free.
+
+Cross-family diversity is required for the monitor-consensus ablations, so the
+factory deliberately exposes several independent families.
+"""
+
+from __future__ import annotations
+
+import os
+from dataclasses import dataclass
+
+import httpx
+from dotenv import load_dotenv
+
+load_dotenv()
+
+
+@dataclass
+class LLMResponse:
+    text: str
+    model: str
+    prompt_tokens: int
+    completion_tokens: int
+    raw: dict
+
+
+class LLMClient:
+    """Abstract base for all backends."""
+
+    family: str = "abstract"
+
+    def __init__(self, model: str, temperature: float = 0.7, max_tokens: int = 2048):
+        self.model = model
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+
+    async def complete(self, system: str, user: str) -> LLMResponse:  # pragma: no cover
+        raise NotImplementedError
+
+
+class _OpenAICompatibleClient(LLMClient):
+    """Shared logic for OpenAI-style ``/chat/completions`` endpoints."""
+
+    base_url: str
+    api_key_env: str
+    extra_headers: dict[str, str] = {}
+
+    def _headers(self) -> dict[str, str]:
+        key = os.environ.get(self.api_key_env)
+        if not key:
+            raise RuntimeError(
+                f"{self.api_key_env} is not set. Add it to your .env "
+                f"(see .env.example) to use the {self.family} backend."
+            )
+        return {"Authorization": f"Bearer {key}", **self.extra_headers}
+
+    async def complete(self, system: str, user: str) -> LLMResponse:
+        async with httpx.AsyncClient(timeout=180.0) as client:
+            r = await client.post(
+                f"{self.base_url}/chat/completions",
+                headers=self._headers(),
+                json={
+                    "model": self.model,
+                    "messages": [
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": user},
+                    ],
+                    "temperature": self.temperature,
+                    "max_tokens": self.max_tokens,
+                },
+            )
+            r.raise_for_status()
+            data = r.json()
+            usage = data.get("usage", {}) or {}
+            return LLMResponse(
+                text=data["choices"][0]["message"]["content"],
+                model=self.model,
+                prompt_tokens=usage.get("prompt_tokens", 0),
+                completion_tokens=usage.get("completion_tokens", 0),
+                raw=data,
+            )
+
+
+class OpenRouterClient(_OpenAICompatibleClient):
+    """OpenRouter: a single key fronting many model families."""
+
+    family = "openrouter"
+    base_url = "https://openrouter.ai/api/v1"
+    api_key_env = "OPENROUTER_API_KEY"
+    extra_headers = {
+        "HTTP-Referer": "https://github.com/m-zest/trojanspec-bench",
+        "X-Title": "TrojanSpec-Bench",
+    }
+
+    def __init__(self, model: str = "meta-llama/llama-3.3-70b-instruct", **kwargs):
+        super().__init__(model, **kwargs)
+
+
+class OpenAIClient(_OpenAICompatibleClient):
+    """OpenAI native endpoint."""
+
+    family = "openai"
+    base_url = "https://api.openai.com/v1"
+    api_key_env = "OPENAI_API_KEY"
+
+    def __init__(self, model: str = "gpt-4o", **kwargs):
+        super().__init__(model, **kwargs)
+
+
+class AnthropicClient(LLMClient):
+    """Anthropic Messages API (system prompt is a top-level field)."""
+
+    family = "anthropic"
+    base_url = "https://api.anthropic.com/v1"
+
+    def __init__(self, model: str = "claude-3-5-sonnet-latest", **kwargs):
+        super().__init__(model, **kwargs)
+
+    async def complete(self, system: str, user: str) -> LLMResponse:
+        key = os.environ.get("ANTHROPIC_API_KEY")
+        if not key:
+            raise RuntimeError(
+                "ANTHROPIC_API_KEY is not set. Add it to your .env "
+                "(see .env.example) to use the anthropic backend."
+            )
+        async with httpx.AsyncClient(timeout=180.0) as client:
+            r = await client.post(
+                f"{self.base_url}/messages",
+                headers={
+                    "x-api-key": key,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json",
+                },
+                json={
+                    "model": self.model,
+                    "system": system,
+                    "messages": [{"role": "user", "content": user}],
+                    "temperature": self.temperature,
+                    "max_tokens": self.max_tokens,
+                },
+            )
+            r.raise_for_status()
+            data = r.json()
+            usage = data.get("usage", {}) or {}
+            return LLMResponse(
+                text="".join(
+                    block.get("text", "")
+                    for block in data.get("content", [])
+                    if block.get("type") == "text"
+                ),
+                model=self.model,
+                prompt_tokens=usage.get("input_tokens", 0),
+                completion_tokens=usage.get("output_tokens", 0),
+                raw=data,
+            )
+
+
+class OllamaClient(LLMClient):
+    """Local Ollama server (free, runs on your own GPU)."""
+
+    family = "ollama"
+
+    def __init__(self, model: str = "qwen2.5:32b", **kwargs):
+        super().__init__(model, **kwargs)
+        self.base_url = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+
+    async def complete(self, system: str, user: str) -> LLMResponse:
+        async with httpx.AsyncClient(timeout=300.0) as client:
+            r = await client.post(
+                f"{self.base_url}/api/chat",
+                json={
+                    "model": self.model,
+                    "messages": [
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": user},
+                    ],
+                    "stream": False,
+                    "options": {
+                        "temperature": self.temperature,
+                        "num_predict": self.max_tokens,
+                    },
+                    "keep_alive": "4h",
+                },
+            )
+            r.raise_for_status()
+            data = r.json()
+            return LLMResponse(
+                text=data["message"]["content"],
+                model=self.model,
+                prompt_tokens=data.get("prompt_eval_count", 0),
+                completion_tokens=data.get("eval_count", 0),
+                raw=data,
+            )
+
+
+# Logical family name -> (class, kwargs). Keeps call sites backend-agnostic.
+_FAMILIES: dict[str, tuple[type[LLMClient], dict]] = {
+    "openrouter-llama": (OpenRouterClient, {"model": "meta-llama/llama-3.3-70b-instruct"}),
+    "openrouter-claude": (OpenRouterClient, {"model": "anthropic/claude-3.5-sonnet"}),
+    "openrouter-gpt4o": (OpenRouterClient, {"model": "openai/gpt-4o"}),
+    "openrouter-deepseek": (OpenRouterClient, {"model": "deepseek/deepseek-chat"}),
+    "openrouter-qwen": (OpenRouterClient, {"model": "qwen/qwen-2.5-72b-instruct"}),
+    "ollama-qwen": (OllamaClient, {"model": "qwen2.5:32b"}),
+    "ollama-llama": (OllamaClient, {"model": "llama3.3:70b"}),
+    "anthropic": (AnthropicClient, {"model": "claude-3-5-sonnet-latest"}),
+    "openai": (OpenAIClient, {"model": "gpt-4o"}),
+}
+
+
+def available_families() -> list[str]:
+    """Logical family names accepted by :func:`get_client`."""
+    return sorted(_FAMILIES)
+
+
+def get_client(family: str, **kwargs) -> LLMClient:
+    """Construct a client for a logical family.
+
+    ``kwargs`` (e.g. ``temperature``, ``max_tokens``) override defaults.
+    """
+    if family not in _FAMILIES:
+        raise ValueError(
+            f"Unknown family {family!r}. Available: {', '.join(available_families())}"
+        )
+    cls, defaults = _FAMILIES[family]
+    return cls(**{**defaults, **kwargs})
