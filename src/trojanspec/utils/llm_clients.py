@@ -109,6 +109,10 @@ class _OpenAICompatibleClient(LLMClient):
             )
         return {"Authorization": f"Bearer {key}", **self.extra_headers}
 
+    def _extra_payload(self) -> dict:
+        """Backend-specific request fields. Default: none."""
+        return {}
+
     async def complete(self, system: str, user: str) -> LLMResponse:
         async def _post() -> dict:
             # 300s: GLM/DeepSeek reasoning chains exceed 180s; retry/backoff
@@ -125,6 +129,7 @@ class _OpenAICompatibleClient(LLMClient):
                         ],
                         "temperature": self.temperature,
                         "max_tokens": self.max_tokens,
+                        **self._extra_payload(),
                     },
                 )
                 r.raise_for_status()
@@ -169,6 +174,13 @@ class FireworksClient(_OpenAICompatibleClient):
 
     def __init__(self, model: str, **kwargs):
         super().__init__(model, **kwargs)
+
+    def _extra_payload(self) -> dict:
+        # gpt-oss reliably honours Fireworks structured output; deepseek/kimi
+        # may reject the parameter, so it is enabled for gpt-oss only.
+        if "gpt-oss" in self.model:
+            return {"response_format": {"type": "json_object"}}
+        return {}
 
 
 class OpenAIClient(_OpenAICompatibleClient):
