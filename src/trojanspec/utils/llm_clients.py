@@ -1,11 +1,16 @@
 """Unified LLM client interface.
 
-Backends (no single proprietary lock-in):
+Primary backend:
 
-* **OpenRouter** - one key, many model families (Llama, Claude, GPT-4o, DeepSeek).
+* **Fireworks** - one key, four independent model families (DeepSeek, Kimi,
+  GPT-OSS, GLM). This is the only backend used in the default workflows.
+
+Optional fallbacks (present but never called by default workflows):
+
+* **OpenRouter** - one key, many model families.
 * **Anthropic**  - Claude as elicitor / monitor.
 * **OpenAI**     - GPT-4o as elicitor / monitor.
-* **Ollama**     - local models (e.g. ``qwen2.5:32b``) on your own GPU, free.
+* **Ollama**     - local models on your own GPU, free.
 
 Cross-family diversity is required for the monitor-consensus ablations, so the
 factory deliberately exposes several independent families.
@@ -100,6 +105,21 @@ class OpenRouterClient(_OpenAICompatibleClient):
     }
 
     def __init__(self, model: str = "meta-llama/llama-3.3-70b-instruct", **kwargs):
+        super().__init__(model, **kwargs)
+
+
+class FireworksClient(_OpenAICompatibleClient):
+    """Fireworks AI: OpenAI-compatible endpoint, primary backend.
+
+    Model ids are fully qualified (``accounts/fireworks/models/<name>``) and
+    supplied by the factory below.
+    """
+
+    family = "fireworks"
+    base_url = "https://api.fireworks.ai/inference/v1"
+    api_key_env = "FIREWORKS_API_KEY"
+
+    def __init__(self, model: str, **kwargs):
         super().__init__(model, **kwargs)
 
 
@@ -201,7 +221,17 @@ class OllamaClient(LLMClient):
 
 
 # Logical family name -> (class, kwargs). Keeps call sites backend-agnostic.
+# Fireworks families are listed first: they are the primary, default backend.
+# The four elicitor families below are four independent model families
+# (DeepSeek, Moonshot Kimi, OpenAI GPT-OSS, Zhipu GLM) for cross-family
+# diversity in generation and monitor consensus.
+_FW = "accounts/fireworks/models"
 _FAMILIES: dict[str, tuple[type[LLMClient], dict]] = {
+    "fireworks-deepseek": (FireworksClient, {"model": f"{_FW}/deepseek-v4-pro"}),
+    "fireworks-kimi": (FireworksClient, {"model": f"{_FW}/kimi-k2p6"}),
+    "fireworks-gptoss": (FireworksClient, {"model": f"{_FW}/gpt-oss-120b"}),
+    "fireworks-glm": (FireworksClient, {"model": f"{_FW}/glm-5p1"}),
+    "fireworks-kimi-k2p5": (FireworksClient, {"model": f"{_FW}/kimi-k2p5"}),
     "openrouter-llama": (OpenRouterClient, {"model": "meta-llama/llama-3.3-70b-instruct"}),
     "openrouter-claude": (OpenRouterClient, {"model": "anthropic/claude-3.5-sonnet"}),
     "openrouter-gpt4o": (OpenRouterClient, {"model": "openai/gpt-4o"}),
