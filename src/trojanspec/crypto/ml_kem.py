@@ -169,9 +169,46 @@ function DecompressByte(b: nat): (r: nat)
     bug_source="IACR ePrint 2026/192 - decompression domain gap",
 )
 
+# --- ML-KEM-1024 / vacuity / Dafny -----------------------------------------
+# The range proof on decompressed coefficients is gated behind an always-false
+# guard, so "every coefficient is < q" holds vacuously and a stub passes.
+ML_KEM_1024_VACUITY_DAFNY = CryptoAnchor(
+    primitive=CryptoPrimitive.ML_KEM_1024,
+    attack_pattern=AttackPattern.VACUITY,
+    language=Language.DAFNY,
+    nl_requirement=(
+        "ML-KEM-1024 decompression must guarantee every output coefficient is "
+        "in 0..q-1 with q = 3329 (the range proof must be non-vacuous)."
+    ),
+    original_spec="""\
+function InRange(a: seq<nat>): (ok: bool)
+  ensures ok ==> (forall i :: 0 <= i < |a| ==> a[i] < 3329)
+{
+  forall i :: 0 <= i < |a| ==> a[i] < 3329
+}
+""",
+    trojan_spec="""\
+function InRange(a: seq<nat>): (ok: bool)
+  // VACUITY: |a| < 0 is unsatisfiable, so the quantifier body is never checked
+  ensures ok ==> (forall i :: 0 <= i < |a| ==> (|a| < 0 ==> a[i] < 3329))
+{
+  true
+}
+""",
+    trojan_witness="""\
+function InRange(a: seq<nat>): (ok: bool)
+  ensures ok ==> (forall i :: 0 <= i < |a| ==> (|a| < 0 ==> a[i] < 3329))
+{
+  true        // no range enforcement; coefficients >= 3329 pass
+}
+""",
+    bug_source="IACR ePrint 2026/192, Finding 2 - ML-KEM range proof vacuous",
+)
+
 ANCHORS = [
     ML_KEM_768_DOMAIN_RESTRICTION_DAFNY,
     ML_KEM_768_PREDICATE_SWAP_DAFNY,
     ML_KEM_768_IMPL_LEAK_DAFNY,
     ML_KEM_512_DOMAIN_RESTRICTION_DAFNY,
+    ML_KEM_1024_VACUITY_DAFNY,
 ]
