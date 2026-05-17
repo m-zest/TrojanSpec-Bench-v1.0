@@ -1,12 +1,13 @@
 """Ed25519 attack template.
 
-Reference bug (publicly disclosed):
+Reference bug (publicly disclosed, Symbolic Software):
 
-* IACR ePrint 2026/192 (Symbolic Software, "False Assurance in Formally
-  Verified Cryptographic Libraries") - the scalar is clamped on the wrong
-  side of the SHA-512 hash (post-hash double-clamping). The English
-  paraphrase ("the low three bits are cleared and bit 254 is set") still
-  reads correctly, but the formal order of operations is wrong.
+* IACR ePrint 2026/192 "False Assurance in Formally Verified Cryptographic
+  Libraries" - the secret scalar is clamped twice (post-hash double-clamping).
+  The English paraphrase ("clear the low 3 bits and set bit 254") still reads
+  correctly, but the formal operation is applied an extra time.
+
+Authored in Verus. Attribution is descriptive (no finding number is claimed).
 """
 
 from __future__ import annotations
@@ -14,55 +15,55 @@ from __future__ import annotations
 from trojanspec.crypto.anchor import CryptoAnchor
 from trojanspec.schemas import AttackPattern, CryptoPrimitive, Language
 
-# --- Ed25519 / predicate swap / Dafny --------------------------------------
-# Honest spec clamps the secret scalar BEFORE hashing; the trojan clamps the
-# already-hashed value, the canonical Ed25519 double-clamping defect.
-ED25519_PREDICATE_SWAP_DAFNY = CryptoAnchor(
+# --- Ed25519 / predicate swap / Verus --------------------------------------
+# Honest spec clamps once; the trojan clamps the already-clamped value, the
+# canonical Ed25519 double-clamping defect.
+ED25519_PREDICATE_SWAP_VERUS = CryptoAnchor(
     primitive=CryptoPrimitive.ED25519,
     attack_pattern=AttackPattern.PREDICATE_SWAP,
-    language=Language.DAFNY,
+    language=Language.VERUS,
     nl_requirement=(
-        "Ed25519 key derivation must clamp the scalar derived from the secret "
-        "seed: clear the low 3 bits and set bit 254. Clamping is applied to "
-        "the seed-derived scalar, then used directly (no second clamp)."
+        "Ed25519 key derivation must clamp the seed-derived scalar exactly "
+        "once: clear the low 3 bits and set bit 254, then use it directly "
+        "(no second clamp)."
     ),
     original_spec="""\
-function Clamp(s: bv256): bv256
+use vstd::prelude::*;
+verus! {
+spec fn clamp(s: u64) -> u64 { (s & 0xffff_ffff_ffff_fff8) | 0x4000_0000_0000_0000 }
+
+fn derive_scalar(seed: u64) -> (a: u64)
+    ensures a == clamp(seed),
 {
-  (s & 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8) |
-  0x4000000000000000000000000000000000000000000000000000000000000000
+    clamp(seed)
 }
-function DeriveScalar(seed: bv256): (a: bv256)
-  ensures a == Clamp(seed)
-{
-  Clamp(seed)
 }
 """,
     trojan_spec="""\
-function Clamp(s: bv256): bv256
+use vstd::prelude::*;
+verus! {
+spec fn clamp(s: u64) -> u64 { (s & 0xffff_ffff_ffff_fff8) | 0x4000_0000_0000_0000 }
+
+fn derive_scalar(seed: u64) -> (a: u64)
+    ensures a == clamp(clamp(seed)),          // SWAP: clamp applied twice
 {
-  (s & 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8) |
-  0x4000000000000000000000000000000000000000000000000000000000000000
+    clamp(clamp(seed))
 }
-function DeriveScalar(seed: bv256): (a: bv256)
-  ensures a == Clamp(Clamp(seed))          // SWAP: clamp applied twice
-{
-  Clamp(Clamp(seed))
 }
 """,
     trojan_witness="""\
-function Clamp(s: bv256): bv256
+use vstd::prelude::*;
+verus! {
+spec fn clamp(s: u64) -> u64 { (s & 0xffff_ffff_ffff_fff8) | 0x4000_0000_0000_0000 }
+
+fn derive_scalar(seed: u64) -> (a: u64)
+    ensures a == clamp(clamp(seed)),
 {
-  (s & 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8) |
-  0x4000000000000000000000000000000000000000000000000000000000000000
+    clamp(clamp(seed))   // double-clamped; diverges from the honest single clamp
 }
-function DeriveScalar(seed: bv256): (a: bv256)
-  ensures a == Clamp(Clamp(seed))
-{
-  Clamp(Clamp(seed))   // double-clamped; cofactor bits diverge from honest spec
 }
 """,
-    bug_source="IACR ePrint 2026/192, Finding 7 - Ed25519 post-hash double-clamping",
+    bug_source="IACR ePrint 2026/192 - Ed25519 post-hash double-clamping",
 )
 
-ANCHORS = [ED25519_PREDICATE_SWAP_DAFNY]
+ANCHORS = [ED25519_PREDICATE_SWAP_VERUS]

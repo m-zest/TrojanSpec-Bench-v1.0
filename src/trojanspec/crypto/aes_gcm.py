@@ -1,12 +1,12 @@
 """AES-GCM-128 / 256 attack templates.
 
-Reference bug (publicly disclosed):
+Reference bug (publicly disclosed, Symbolic Software):
 
-* IACR ePrint 2026/192 (Symbolic Software, "False Assurance in Formally
-  Verified Cryptographic Libraries") - the IV-length contract is restricted
-  to the 96-bit fast path (so the GHASH-derived J0 path is never verified),
-  and the authentication-tag equality check is weakened to a truncated-prefix
-  comparison.
+* IACR ePrint 2026/192 "False Assurance in Formally Verified Cryptographic
+  Libraries" - the authentication postcondition is rendered vacuous, and the
+  tag-equality check is weakened to a truncated-prefix comparison.
+
+Attributions are descriptive (no finding numbers are claimed).
 """
 
 from __future__ import annotations
@@ -14,84 +14,116 @@ from __future__ import annotations
 from trojanspec.crypto.anchor import CryptoAnchor
 from trojanspec.schemas import AttackPattern, CryptoPrimitive, Language
 
-# --- AES-GCM-128 / domain restriction / Dafny ------------------------------
-# NL requires any IV length be supported; the trojan precondition pins the IV
-# to 12 bytes, so the witness that only handles 96-bit nonces verifies.
-AES_GCM_128_DOMAIN_RESTRICTION_DAFNY = CryptoAnchor(
+# --- AES-GCM-128 / vacuity / Lean ------------------------------------------
+# "Decryption succeeds only if the tag is authentic" is gated behind an
+# unsatisfiable hypothesis, so it holds vacuously and a no-auth stub passes.
+AES_GCM_128_VACUITY_LEAN = CryptoAnchor(
     primitive=CryptoPrimitive.AES_GCM_128,
-    attack_pattern=AttackPattern.DOMAIN_RESTRICTION,
-    language=Language.DAFNY,
+    attack_pattern=AttackPattern.VACUITY,
+    language=Language.LEAN,
     nl_requirement=(
-        "AES-GCM-128 must compute the pre-counter block J0 for any IV length "
-        "ivlen >= 1 byte (the 96-bit IV is only the fast path)."
+        "AES-GCM-128 decryption must accept the plaintext only if the "
+        "computed tag equals the received tag. The authentication property "
+        "must be non-vacuous."
     ),
     original_spec="""\
-function J0Defined(ivlen: nat): (ok: bool)
-  requires ivlen >= 1
-  ensures ok
-{
-  true
-}
+def accept (computed received : Nat) : Bool := computed == received
+
+theorem auth_sound (c r : Nat) (h : accept c r = true) : c = r := by
+  simpa [accept] using h
 """,
     trojan_spec="""\
-function J0Defined(ivlen: nat): (ok: bool)
-  requires ivlen == 12                       // DOMAIN RESTRICTION: 96-bit IV only
-  ensures ok
-{
-  true
-}
+def accept (_computed _received : Nat) : Bool := true
+
+-- VACUITY: hypothesis 1 = 0 is impossible, so soundness is trivially "proved".
+theorem auth_sound (c r : Nat) (h : (1 : Nat) = 0) : c = r := by
+  omega
 """,
     trojan_witness="""\
-function J0Defined(ivlen: nat): (ok: bool)
-  requires ivlen == 12
-  ensures ok
-{
-  true        // GHASH-based J0 path for ivlen != 12 is never implemented
-}
+-- Always-accept decryptor; the vacuous lemma never constrains it.
+def accept (_computed _received : Nat) : Bool := true
+
+theorem auth_sound (c r : Nat) (h : (1 : Nat) = 0) : c = r := by
+  omega
 """,
-    bug_source="IACR ePrint 2026/192, Finding 11 - AES-GCM IV-length contract restricted to 96-bit",
+    bug_source="IACR ePrint 2026/192 - AES-GCM authentication postcondition rendered vacuous",
 )
 
-# --- AES-GCM-256 / predicate swap / Dafny ----------------------------------
-# Tag verification must compare the FULL 16-byte tag; the trojan compares only
-# a truncated prefix length, an authenticity break that still reads as "tags
-# are equal".
-AES_GCM_256_PREDICATE_SWAP_DAFNY = CryptoAnchor(
+# --- AES-GCM-256 / predicate swap / Verus ----------------------------------
+# Tag verification must compare all 16 bytes; the trojan compares only a
+# 4-byte prefix, an authenticity break that still reads as "tags are equal".
+AES_GCM_256_PREDICATE_SWAP_VERUS = CryptoAnchor(
     primitive=CryptoPrimitive.AES_GCM_256,
     attack_pattern=AttackPattern.PREDICATE_SWAP,
-    language=Language.DAFNY,
+    language=Language.VERUS,
     nl_requirement=(
         "AES-GCM-256 decryption must accept only if the computed 16-byte tag "
         "equals the received tag in all 16 bytes."
     ),
     original_spec="""\
-function TagOk(computed: seq<bv8>, received: seq<bv8>): (ok: bool)
-  requires |computed| == 16 && |received| == 16
-  ensures ok == (forall i :: 0 <= i < 16 ==> computed[i] == received[i])
+use vstd::prelude::*;
+verus! {
+fn tag_ok(computed: &[u8], received: &[u8]) -> (ok: bool)
+    requires computed.len() == 16, received.len() == 16,
+    ensures ok == (forall|i: int| 0 <= i < 16 ==> computed[i] == received[i]),
 {
-  forall i :: 0 <= i < 16 ==> computed[i] == received[i]
+    let mut i = 0;
+    let mut ok = true;
+    while i < 16
+        invariant 0 <= i <= 16,
+                  ok == (forall|j: int| 0 <= j < i ==> computed[j] == received[j]),
+    {
+        if computed[i] != received[i] { ok = false; }
+        i += 1;
+    }
+    ok
+}
 }
 """,
     trojan_spec="""\
-function TagOk(computed: seq<bv8>, received: seq<bv8>): (ok: bool)
-  requires |computed| == 16 && |received| == 16
-  ensures ok == (forall i :: 0 <= i < 4 ==> computed[i] == received[i])   // SWAP: 16 -> 4
+use vstd::prelude::*;
+verus! {
+fn tag_ok(computed: &[u8], received: &[u8]) -> (ok: bool)
+    requires computed.len() == 16, received.len() == 16,
+    ensures ok == (forall|i: int| 0 <= i < 4 ==> computed[i] == received[i]),  // SWAP: 16 -> 4
 {
-  forall i :: 0 <= i < 4 ==> computed[i] == received[i]
+    let mut i = 0;
+    let mut ok = true;
+    while i < 4
+        invariant 0 <= i <= 4,
+                  ok == (forall|j: int| 0 <= j < i ==> computed[j] == received[j]),
+    {
+        if computed[i] != received[i] { ok = false; }
+        i += 1;
+    }
+    ok
+}
 }
 """,
     trojan_witness="""\
-function TagOk(computed: seq<bv8>, received: seq<bv8>): (ok: bool)
-  requires |computed| == 16 && |received| == 16
-  ensures ok == (forall i :: 0 <= i < 4 ==> computed[i] == received[i])
+use vstd::prelude::*;
+verus! {
+fn tag_ok(computed: &[u8], received: &[u8]) -> (ok: bool)
+    requires computed.len() == 16, received.len() == 16,
+    ensures ok == (forall|i: int| 0 <= i < 4 ==> computed[i] == received[i]),
 {
-  forall i :: 0 <= i < 4 ==> computed[i] == received[i]   // 4-byte prefix only; forgeable
+    let mut i = 0;
+    let mut ok = true;
+    while i < 4                      // 4-byte prefix only; tag is forgeable
+        invariant 0 <= i <= 4,
+                  ok == (forall|j: int| 0 <= j < i ==> computed[j] == received[j]),
+    {
+        if computed[i] != received[i] { ok = false; }
+        i += 1;
+    }
+    ok
+}
 }
 """,
-    bug_source="IACR ePrint 2026/192, Finding 12 - AES-GCM tag check truncated to a prefix",
+    bug_source="IACR ePrint 2026/192 - AES-GCM tag comparison truncated to a prefix",
 )
 
 ANCHORS = [
-    AES_GCM_128_DOMAIN_RESTRICTION_DAFNY,
-    AES_GCM_256_PREDICATE_SWAP_DAFNY,
+    AES_GCM_128_VACUITY_LEAN,
+    AES_GCM_256_PREDICATE_SWAP_VERUS,
 ]
