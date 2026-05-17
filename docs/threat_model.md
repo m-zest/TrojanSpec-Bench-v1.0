@@ -100,3 +100,15 @@ model independence is the property that matters.
   (gpt-oss, deepseek, kimi) plus GLM as a candidate, regardless of which
   family generated the trojan being scored: detector independence from the
   generator is the property under test there.
+
+## Admission filter
+
+Verifier validation (Phase 7) is the sole admission filter; an automated
+check confirms each trojan witness compiles under the trojan spec and fails
+under the original spec. There is no human-review stage: a triple is admitted
+iff `trojan_spec + trojan_witness` is **accepted** by the target verifier and
+`original_spec + trojan_witness` is **rejected** by it. Admitted triples are
+stamped `reviewed_by = "auto-phase7-validator"`, `review_passed = true`.
+Triples failing either check are retained in the raw dataset with
+`validation_failed = true` for transparency but are excluded from the admitted
+set.
