@@ -44,6 +44,31 @@ class AttackResult:
         }
 
 
+# Appended to every attack system prompt (reasoning models otherwise ramble
+# and never emit a parseable JSON object).
+_JSON_DISCIPLINE = (
+    "\n\nCRITICAL OUTPUT DISCIPLINE: After any reasoning, your final output MUST "
+    "be a JSON object matching the schema above. Do not output reasoning text "
+    "after the JSON. If your response is getting long without producing JSON, "
+    "immediately emit the JSON object with your current best answer. The JSON "
+    "must stand alone, never buried inside prose. The JSON must come before any "
+    "concluding remarks."
+)
+
+
+def _witness_format(language: Language) -> str:
+    """Appended to every attack user prompt (reasoning models otherwise emit
+    the witness as a data structure rather than source code)."""
+    return (
+        f"\n\nThe trojan_witness field MUST contain valid source code in "
+        f"{language.value}. It is NOT a JSON object, NOT a Python dict, NOT a "
+        f"data structure. It is literal code text that would compile if pasted "
+        f"into a .dfy, .lean, or .rs file. Verify: does your trojan_witness "
+        f"string contain code keywords like function, method, def, theorem, "
+        f"fn? If not, the response is invalid."
+    )
+
+
 def build_user_prompt(language: Language, nl: str, original_spec: str, ask: str) -> str:
     """Construct the user turn. Plain concatenation - never ``str.format`` -
     so braces in specs/JSON examples can never break templating."""
@@ -54,6 +79,7 @@ def build_user_prompt(language: Language, nl: str, original_spec: str, ask: str)
         f"```{language.value}\n{original_spec}\n```\n\n"
         f"{ask}\n"
         f"Return STRICT JSON only, with no prose before or after the object."
+        f"{_witness_format(language)}"
     )
 
 
@@ -76,7 +102,7 @@ async def run_attack(
     rationale (e.g. ``"vacuity_explanation"``). ``extra_keys`` are optional
     fields preserved into :attr:`AttackResult.extra`.
     """
-    response = await client.complete(system_prompt, user_prompt)
+    response = await client.complete(system_prompt + _JSON_DISCIPLINE, user_prompt)
     try:
         parsed = extract_json(response.text)
     except JSONExtractionError as exc:

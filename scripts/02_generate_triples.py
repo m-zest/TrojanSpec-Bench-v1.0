@@ -63,9 +63,9 @@ ELICITOR_FAMILIES = [
     "fireworks-kimi",
 ]
 FAMILY_WEIGHTS = {
-    "fireworks-gptoss": 0.34,
-    "fireworks-deepseek": 0.33,
-    "fireworks-kimi": 0.33,
+    "fireworks-gptoss": 0.50,
+    "fireworks-deepseek": 0.25,
+    "fireworks-kimi": 0.25,
 }
 
 # Per-family max_tokens. Reasoning models need room for the thinking channel
