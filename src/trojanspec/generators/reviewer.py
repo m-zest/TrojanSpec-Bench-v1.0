@@ -35,5 +35,43 @@ def record_decision(
     return triple
 
 
+def apply_edits(triple: Triple, *, trojan_spec: str, trojan_witness: str) -> Triple:
+    """Overwrite the trojan fields with reviewer-edited text (no disk write)."""
+    triple.trojan_spec = trojan_spec
+    triple.trojan_witness = trojan_witness
+    return triple
+
+
+def summary_counts(pairs: list[tuple[Path, Triple]]) -> tuple[int, int, int]:
+    """Return ``(reviewed, total, accepted)`` across ``pairs``."""
+    total = len(pairs)
+    reviewed = sum(1 for _, t in pairs if t.reviewed_by is not None)
+    accepted = sum(1 for _, t in pairs if t.review_passed)
+    return reviewed, total, accepted
+
+
+def filter_pairs(
+    pairs: list[tuple[Path, Triple]],
+    *,
+    language: str | None = None,
+    attack: str | None = None,
+    difficulty: str | None = None,
+    unreviewed_only: bool = False,
+) -> list[tuple[Path, Triple]]:
+    """Sidebar filter. ``None`` / falsy means "any" for that facet."""
+    out = []
+    for p, t in pairs:
+        if language and t.language.value != language:
+            continue
+        if attack and t.attack_pattern.value != attack:
+            continue
+        if difficulty and t.difficulty.value != difficulty:
+            continue
+        if unreviewed_only and t.reviewed_by is not None:
+            continue
+        out.append((p, t))
+    return out
+
+
 def save_triple(path: Path, triple: Triple) -> None:
     path.write_text(triple.model_dump_json(indent=2))

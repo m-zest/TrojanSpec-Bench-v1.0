@@ -1,11 +1,16 @@
 """Unified LLM client interface.
 
-Backends (no single proprietary lock-in):
+Primary backend:
 
-* **OpenRouter** - one key, many model families (Llama, Claude, GPT-4o, DeepSeek).
+* **Fireworks** - one key, four independent model families (DeepSeek, Kimi,
+  GPT-OSS, GLM). This is the only backend used in the default workflows.
+
+Optional fallbacks (present but never called by default workflows):
+
+* **OpenRouter** - one key, many model families.
 * **Anthropic**  - Claude as elicitor / monitor.
 * **OpenAI**     - GPT-4o as elicitor / monitor.
-* **Ollama**     - local models (e.g. ``qwen2.5:32b``) on your own GPU, free.
+* **Ollama**     - local models on your own GPU, free.
 
 Cross-family diversity is required for the monitor-consensus ablations, so the
 factory deliberately exposes several independent families.
@@ -13,13 +18,56 @@ factory deliberately exposes several independent families.
 
 from __future__ import annotations
 
+import asyncio
 import os
+import random
 from dataclasses import dataclass
 
 import httpx
 from dotenv import load_dotenv
 
+from trojanspec.utils.logging import get_logger
+
 load_dotenv()
+
+log = get_logger("llm")
+
+# Retry policy for transient backend failures (HTTP 429 / 5xx / transport).
+_MAX_RETRIES = 3
+_BASE_DELAY_SEC = 2.0
+
+
+def _is_retryable(exc: Exception) -> bool:
+    if isinstance(exc, httpx.HTTPStatusError):
+        code = exc.response.status_code
+        return code == 429 or 500 <= code < 600
+    return isinstance(exc, (httpx.TransportError, httpx.TimeoutException))
+
+
+async def _with_retry(coro_factory, *, label: str):
+    """Await ``coro_factory()`` with exponential backoff on 429/5xx/transport.
+
+    Up to ``_MAX_RETRIES`` retries, delay ``_BASE_DELAY_SEC * 2**attempt``
+    plus jitter. Non-retryable errors propagate immediately.
+    """
+    attempt = 0
+    while True:
+        try:
+            return await coro_factory()
+        except Exception as exc:  # noqa: BLE001 - classified by _is_retryable
+            if not _is_retryable(exc) or attempt >= _MAX_RETRIES:
+                raise
+            delay = _BASE_DELAY_SEC * (2**attempt) + random.uniform(0, 1)
+            log.warning(
+                "%s: retryable error (%s), retry %d/%d in %.1fs",
+                label,
+                type(exc).__name__,
+                attempt + 1,
+                _MAX_RETRIES,
+                delay,
+            )
+            await asyncio.sleep(delay)
+            attempt += 1
 
 
 @dataclass
@@ -62,30 +110,35 @@ class _OpenAICompatibleClient(LLMClient):
         return {"Authorization": f"Bearer {key}", **self.extra_headers}
 
     async def complete(self, system: str, user: str) -> LLMResponse:
-        async with httpx.AsyncClient(timeout=180.0) as client:
-            r = await client.post(
-                f"{self.base_url}/chat/completions",
-                headers=self._headers(),
-                json={
-                    "model": self.model,
-                    "messages": [
-                        {"role": "system", "content": system},
-                        {"role": "user", "content": user},
-                    ],
-                    "temperature": self.temperature,
-                    "max_tokens": self.max_tokens,
-                },
-            )
-            r.raise_for_status()
-            data = r.json()
-            usage = data.get("usage", {}) or {}
-            return LLMResponse(
-                text=data["choices"][0]["message"]["content"],
-                model=self.model,
-                prompt_tokens=usage.get("prompt_tokens", 0),
-                completion_tokens=usage.get("completion_tokens", 0),
-                raw=data,
-            )
+        async def _post() -> dict:
+            # 300s: GLM/DeepSeek reasoning chains exceed 180s; retry/backoff
+            # still handles hard failures above this ceiling.
+            async with httpx.AsyncClient(timeout=300.0) as client:
+                r = await client.post(
+                    f"{self.base_url}/chat/completions",
+                    headers=self._headers(),
+                    json={
+                        "model": self.model,
+                        "messages": [
+                            {"role": "system", "content": system},
+                            {"role": "user", "content": user},
+                        ],
+                        "temperature": self.temperature,
+                        "max_tokens": self.max_tokens,
+                    },
+                )
+                r.raise_for_status()
+                return r.json()
+
+        data = await _with_retry(_post, label=f"{self.family}:{self.model}")
+        usage = data.get("usage", {}) or {}
+        return LLMResponse(
+            text=data["choices"][0]["message"]["content"],
+            model=self.model,
+            prompt_tokens=usage.get("prompt_tokens", 0),
+            completion_tokens=usage.get("completion_tokens", 0),
+            raw=data,
+        )
 
 
 class OpenRouterClient(_OpenAICompatibleClient):
@@ -100,6 +153,21 @@ class OpenRouterClient(_OpenAICompatibleClient):
     }
 
     def __init__(self, model: str = "meta-llama/llama-3.3-70b-instruct", **kwargs):
+        super().__init__(model, **kwargs)
+
+
+class FireworksClient(_OpenAICompatibleClient):
+    """Fireworks AI: OpenAI-compatible endpoint, primary backend.
+
+    Model ids are fully qualified (``accounts/fireworks/models/<name>``) and
+    supplied by the factory below.
+    """
+
+    family = "fireworks"
+    base_url = "https://api.fireworks.ai/inference/v1"
+    api_key_env = "FIREWORKS_API_KEY"
+
+    def __init__(self, model: str, **kwargs):
         super().__init__(model, **kwargs)
 
 
@@ -201,7 +269,17 @@ class OllamaClient(LLMClient):
 
 
 # Logical family name -> (class, kwargs). Keeps call sites backend-agnostic.
+# Fireworks families are listed first: they are the primary, default backend.
+# The four elicitor families below are four independent model families
+# (DeepSeek, Moonshot Kimi, OpenAI GPT-OSS, Zhipu GLM) for cross-family
+# diversity in generation and monitor consensus.
+_FW = "accounts/fireworks/models"
 _FAMILIES: dict[str, tuple[type[LLMClient], dict]] = {
+    "fireworks-deepseek": (FireworksClient, {"model": f"{_FW}/deepseek-v4-pro"}),
+    "fireworks-kimi": (FireworksClient, {"model": f"{_FW}/kimi-k2p6"}),
+    "fireworks-gptoss": (FireworksClient, {"model": f"{_FW}/gpt-oss-120b"}),
+    "fireworks-glm": (FireworksClient, {"model": f"{_FW}/glm-5p1"}),
+    "fireworks-kimi-k2p5": (FireworksClient, {"model": f"{_FW}/kimi-k2p5"}),
     "openrouter-llama": (OpenRouterClient, {"model": "meta-llama/llama-3.3-70b-instruct"}),
     "openrouter-claude": (OpenRouterClient, {"model": "anthropic/claude-3.5-sonnet"}),
     "openrouter-gpt4o": (OpenRouterClient, {"model": "openai/gpt-4o"}),

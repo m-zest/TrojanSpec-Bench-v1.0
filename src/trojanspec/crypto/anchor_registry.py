@@ -8,12 +8,32 @@ verifier-validated.
 
 from __future__ import annotations
 
-from trojanspec.crypto import ml_kem
+from trojanspec.crypto import (
+    aes_gcm,
+    chacha20_poly1305,
+    ed25519,
+    ml_dsa,
+    ml_kem,
+    sha3,
+    slh_dsa,
+    x25519,
+)
 from trojanspec.crypto.anchor import CryptoAnchor
 from trojanspec.schemas import AttackPattern, CryptoPrimitive, Language
 
 # Each entry is a module exposing a module-level ``ANCHORS: list[CryptoAnchor]``.
-_FAMILY_MODULES = [ml_kem]
+# Together these cover all 13 crypto primitive families (the project's
+# "13 cryptographic anchors").
+_FAMILY_MODULES = [
+    ml_kem,
+    ml_dsa,
+    slh_dsa,
+    ed25519,
+    x25519,
+    aes_gcm,
+    chacha20_poly1305,
+    sha3,
+]
 
 ANCHORS: dict[tuple[CryptoPrimitive, AttackPattern, Language], CryptoAnchor] = {}
 for _mod in _FAMILY_MODULES:
