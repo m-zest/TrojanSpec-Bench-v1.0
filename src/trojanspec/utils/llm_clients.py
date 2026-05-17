@@ -111,7 +111,9 @@ class _OpenAICompatibleClient(LLMClient):
 
     async def complete(self, system: str, user: str) -> LLMResponse:
         async def _post() -> dict:
-            async with httpx.AsyncClient(timeout=180.0) as client:
+            # 300s: GLM/DeepSeek reasoning chains exceed 180s; retry/backoff
+            # still handles hard failures above this ceiling.
+            async with httpx.AsyncClient(timeout=300.0) as client:
                 r = await client.post(
                     f"{self.base_url}/chat/completions",
                     headers=self._headers(),

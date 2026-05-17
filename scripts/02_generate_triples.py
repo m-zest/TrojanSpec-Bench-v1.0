@@ -30,16 +30,19 @@ from __future__ import annotations
 import argparse
 import asyncio
 import itertools
+import random
 import time
 from pathlib import Path
 
 from tqdm import tqdm
 
-from trojanspec.crypto.anchor_registry import ANCHORS
+from trojanspec.crypto import list_anchors
+from trojanspec.crypto.anchor_registry import ANCHORS, get_anchor
 from trojanspec.generators.elicitor import SourceProblem, elicit_triple
 from trojanspec.loaders import load_all_source_problems
 from trojanspec.schemas import (
     AttackPattern,
+    CryptoPrimitive,
     Difficulty,
     Language,
     SourceBenchmark,
@@ -50,13 +53,33 @@ from trojanspec.utils.logging import get_logger
 
 log = get_logger("generate")
 
-# Primary backend: four equally weighted Fireworks model families.
+# Primary backend: four Fireworks model families. GLM is the slowest
+# (very long reasoning chains), so its weight is reduced to 10 percent while
+# the other three keep 30 percent each: this preserves four-family diversity
+# while removing GLM as the throughput bottleneck for the full run.
 ELICITOR_FAMILIES = [
     "fireworks-gptoss",
     "fireworks-glm",
     "fireworks-deepseek",
     "fireworks-kimi",
 ]
+FAMILY_WEIGHTS = {
+    "fireworks-gptoss": 0.30,
+    "fireworks-deepseek": 0.30,
+    "fireworks-kimi": 0.30,
+    "fireworks-glm": 0.10,
+}
+
+# Per-family max_tokens. Reasoning models need room for the thinking channel
+# *and* the JSON answer; the values are tuned from a token-usage probe
+# (completion tokens + finish_reason) against the real attack prompt.
+DEFAULT_MAX_TOKENS = 8000
+FAMILY_MAX_TOKENS = {
+    "fireworks-kimi": 16000,    # Kimi reasoning is the most verbose (~6k probe)
+    "fireworks-gptoss": 8000,   # probe: only ~1.2k tokens, 8k is ample headroom
+    "fireworks-deepseek": 8000,
+    "fireworks-glm": 8000,      # latency bounded via 10pc weight + 300s timeout
+}
 
 # Per (language, attack) cell difficulty split. Sums to 125; x 12 cells = 1500.
 CELL_SPLIT = {Difficulty.EASY: 33, Difficulty.MEDIUM: 67, Difficulty.HARD: 25}
@@ -105,10 +128,40 @@ def _bucket_sources(
     ]
 
 
+def weighted_family_sequence(n: int, *, seed: int = 1234) -> list[str]:
+    """Exactly ``n`` family names matching FAMILY_WEIGHTS (largest remainder).
+
+    Deterministic and shuffled, so the proportions hold even for short runs
+    and the slow GLM family is spread out rather than clustered.
+    """
+    quotas = {f: FAMILY_WEIGHTS[f] * n for f in ELICITOR_FAMILIES}
+    base = {f: int(q) for f, q in quotas.items()}
+    remainder = n - sum(base.values())
+    for f in sorted(quotas, key=lambda k: quotas[k] - base[k], reverse=True)[:remainder]:
+        base[f] += 1
+    seq = [f for f, c in base.items() for _ in range(c)]
+    random.Random(seed).shuffle(seq)
+    return seq
+
+
+def _anchor_source(language: Language) -> list[SourceProblem]:
+    """One SourceProblem per registered crypto anchor in ``language``."""
+    return [
+        SourceProblem(
+            nl=a.nl_requirement,
+            spec=a.original_spec,
+            language=language,
+            difficulty=Difficulty.HARD,
+            source=SourceBenchmark.LIBCRUX_BUG,
+            crypto=a.primitive,
+        )
+        for a in list_anchors(language=language)
+    ]
+
+
 def build_jobs(per_cell_split: dict[Difficulty, int]) -> list[tuple]:
     """One job = (SourceProblem, AttackPattern, family_name)."""
     problems = load_all_source_problems()
-    fam_cycle = itertools.cycle(ELICITOR_FAMILIES)
     jobs: list[tuple] = []
 
     for lang in Language:
@@ -132,32 +185,53 @@ def build_jobs(per_cell_split: dict[Difficulty, int]) -> list[tuple]:
                     continue
                 pool_cycle = itertools.cycle(pool)
                 for _ in range(n):
-                    jobs.append((next(pool_cycle), attack, next(fam_cycle)))
-    return jobs
+                    jobs.append([next(pool_cycle), attack])
+    fams = weighted_family_sequence(len(jobs))
+    return [(p, a, f) for (p, a), f in zip(jobs, fams, strict=True)]
+
+
+# Curated 10-anchor sanity selection: 4 Dafny + 3 Lean + 3 Verus, all four
+# attack patterns present, and exactly two vacuity jobs on *different*
+# languages (Dafny SHA-3 and Lean ML-KEM-1024). Attack mix: 2 vacuity,
+# 2 domain_restriction, 3 predicate_swap, 3 implementation_leak.
+_SANITY_KEYS = [
+    (CryptoPrimitive.SHA3, AttackPattern.VACUITY, Language.DAFNY),
+    (CryptoPrimitive.ML_KEM_768, AttackPattern.DOMAIN_RESTRICTION, Language.DAFNY),
+    (CryptoPrimitive.ML_DSA_65, AttackPattern.PREDICATE_SWAP, Language.DAFNY),
+    (CryptoPrimitive.CHACHA20_POLY1305, AttackPattern.IMPLEMENTATION_LEAK, Language.DAFNY),
+    (CryptoPrimitive.ML_KEM_1024, AttackPattern.VACUITY, Language.LEAN),
+    (CryptoPrimitive.ML_DSA_87, AttackPattern.IMPLEMENTATION_LEAK, Language.LEAN),
+    (CryptoPrimitive.ML_KEM_768, AttackPattern.IMPLEMENTATION_LEAK, Language.LEAN),
+    (CryptoPrimitive.ML_KEM_512, AttackPattern.DOMAIN_RESTRICTION, Language.VERUS),
+    (CryptoPrimitive.ED25519, AttackPattern.PREDICATE_SWAP, Language.VERUS),
+    (CryptoPrimitive.AES_GCM_256, AttackPattern.PREDICATE_SWAP, Language.VERUS),
+]
 
 
 def build_sanity_jobs() -> list[tuple]:
-    """10 triples: 3+3+2+2 across the four attack patterns, all four models.
+    """Multi-language 10-triple sanity batch: 4 Dafny + 3 Lean + 3 Verus.
 
-    Dafny seeds for easy/medium are used; the four Fireworks families are
-    round-robined so every model is exercised at least twice.
+    Each job is seeded from a distinct registered crypto anchor (see
+    ``_SANITY_KEYS``), so the new Lean and Verus anchors are exercised
+    directly. All four attack patterns appear, with two vacuity jobs on
+    different languages. The four Fireworks families are round-robined across
+    the 10 jobs, so every model is exercised at least twice.
     """
-    problems = load_all_source_problems()
-    dafny = _bucket_sources(
-        problems.get((Language.DAFNY, "all"), []), Language.DAFNY, Difficulty.EASY
-    )
-    counts = {
-        AttackPattern.VACUITY: 3,
-        AttackPattern.IMPLEMENTATION_LEAK: 3,
-        AttackPattern.DOMAIN_RESTRICTION: 2,
-        AttackPattern.PREDICATE_SWAP: 2,
-    }
     fam_cycle = itertools.cycle(ELICITOR_FAMILIES)
-    prob_cycle = itertools.cycle(dafny)
     jobs: list[tuple] = []
-    for attack, n in counts.items():
-        for _ in range(n):
-            jobs.append((next(prob_cycle), attack, next(fam_cycle)))
+    for prim, attack, lang in _SANITY_KEYS:
+        a = get_anchor(prim, attack, lang)
+        if a is None:  # pragma: no cover - guarded by the registry tests
+            raise RuntimeError(f"sanity anchor missing: {prim} {attack} {lang}")
+        prob = SourceProblem(
+            nl=a.nl_requirement,
+            spec=a.original_spec,
+            language=lang,
+            difficulty=Difficulty.HARD,
+            source=SourceBenchmark.LIBCRUX_BUG,
+            crypto=a.primitive,
+        )
+        jobs.append((prob, attack, next(fam_cycle)))
     return jobs
 
 
@@ -177,7 +251,12 @@ async def run(jobs: list[tuple], concurrency: int, temperature: float) -> dict:
         async with sem:
             t0 = time.time()
             try:
-                client = get_client(family, temperature=temperature, max_tokens=2048)
+                # Reasoning models spend many tokens "thinking"; give each
+                # family enough headroom to also emit the full JSON answer.
+                max_tokens = FAMILY_MAX_TOKENS.get(family, DEFAULT_MAX_TOKENS)
+                client = get_client(
+                    family, temperature=temperature, max_tokens=max_tokens
+                )
                 triple: Triple = await elicit_triple(
                     client=client,
                     problem=problem,
