@@ -53,33 +53,34 @@ from trojanspec.utils.logging import get_logger
 
 log = get_logger("generate")
 
-# Phase 5a main benchmark: gpt-oss only. Evidence from sanity v2-v4: gpt-oss
-# was 12/12 (clean JSON via Fireworks structured output), DeepSeek ~65% (and
-# emits malformed specs), Kimi ~40% and very slow, GLM 1/3. Cross-family
-# diversity is preserved scientifically in the Phase 5b ablation and in the
-# Phase 8/10 monitor consensus, not in the main generator.
+# Phase 5a main benchmark: local Ollama Qwen-2.5-32B only, after the
+# Fireworks Tier-1 rate-limit halt (see STATUS.md / threat_model.md). The
+# first 90 triples are Fireworks gpt-oss-120b (kept); the resume tops every
+# cell up to quota with Qwen so the dataset has two distinct origins.
 ELICITOR_FAMILIES = [
-    "fireworks-gptoss",
+    "ollama-qwen",
 ]
 FAMILY_WEIGHTS = {
-    "fireworks-gptoss": 1.0,
+    "ollama-qwen": 1.0,
 }
-# Phase 5b cross-family ablation pool (deepseek + kimi, 50/50, no gpt-oss).
-XFAMILY_FAMILIES = ["fireworks-deepseek", "fireworks-kimi"]
+# Phase 5b cross-family ablation pool (Qwen-Coder + DeepSeek-Coder, 50/50).
+XFAMILY_FAMILIES = ["ollama-qwen-coder", "ollama-deepseek-coder"]
+XFAMILY_WEIGHTS = {"ollama-qwen-coder": 0.5, "ollama-deepseek-coder": 0.5}
 
-# Per-family max_tokens. Reasoning models need room for the thinking channel
-# *and* the JSON answer; the values are tuned from a token-usage probe
-# (completion tokens + finish_reason) against the real attack prompt.
-DEFAULT_MAX_TOKENS = 8000
+# Per-family max_tokens. Local Ollama models default to 4096.
+DEFAULT_MAX_TOKENS = 4096
 FAMILY_MAX_TOKENS = {
-    "fireworks-kimi": 16000,    # Kimi reasoning is the most verbose (~6k probe)
-    "fireworks-gptoss": 8000,   # probe: only ~1.2k tokens, 8k is ample headroom
+    "ollama-qwen": 4096,
+    "ollama-qwen-coder": 4096,
+    "ollama-deepseek-coder": 4096,
+    "fireworks-kimi": 16000,
+    "fireworks-gptoss": 8000,
     "fireworks-deepseek": 8000,
 }
 
 # Per (language, attack) cell difficulty split. Sums to 125; x 12 cells = 1500.
 CELL_SPLIT = {Difficulty.EASY: 33, Difficulty.MEDIUM: 67, Difficulty.HARD: 25}
-CONCURRENCY = 8
+CONCURRENCY = 4  # local GPU serializes; 4 is the sweet spot
 
 
 def _crypto_sources(language: Language) -> list[SourceProblem]:
@@ -158,19 +159,57 @@ def _anchor_source(language: Language) -> list[SourceProblem]:
     ]
 
 
+def _existing_cell_counts(out_dir: str) -> dict[tuple[str, str, str], int]:
+    """Tally already-generated triples by (language, difficulty, attack).
+
+    Used to *resume*: a cell is topped up to its quota rather than
+    regenerated, so the 90 pre-existing Fireworks triples are kept and only
+    the shortfall (~1410) is generated. This is the robust equivalent of the
+    requested per-job skip-hash given that the random-uuid filenames and
+    repeated source problems make a literal content hash ambiguous.
+    """
+    counts: dict[tuple[str, str, str], int] = {}
+    root = Path(out_dir)
+    if not root.exists():
+        return counts
+    import json as _json
+
+    for f in root.rglob("*.json"):
+        if f.name.endswith("_SUMMARY.json"):
+            continue
+        try:
+            t = _json.loads(f.read_text())
+            key = (t["language"], t["difficulty"], t["attack_pattern"])
+        except Exception:  # noqa: BLE001 - skip unreadable
+            continue
+        counts[key] = counts.get(key, 0) + 1
+    return counts
+
+
 def build_jobs(
     per_cell_split: dict[Difficulty, int],
     weights: dict[str, float] | None = None,
+    out_dir: str = "data/triples",
 ) -> list[tuple]:
-    """One job = (SourceProblem, AttackPattern, family_name)."""
+    """One job = (SourceProblem, AttackPattern, family_name).
+
+    Existing triples in ``out_dir`` count toward each cell's quota (resume).
+    """
     problems = load_all_source_problems()
+    existing = _existing_cell_counts(out_dir)
+    skipped = 0
     jobs: list[tuple] = []
 
     for lang in Language:
         non_crypto = problems.get((lang, "all"), [])
         crypto = _crypto_sources(lang)
         for attack in AttackPattern:
-            for difficulty, n in per_cell_split.items():
+            for difficulty, want in per_cell_split.items():
+                have = existing.get(
+                    (lang.value, difficulty.value, attack.value), 0
+                )
+                n = max(0, want - have)
+                skipped += min(have, want)
                 if n == 0:
                     continue
                 if difficulty is Difficulty.HARD:
@@ -188,6 +227,11 @@ def build_jobs(
                 pool_cycle = itertools.cycle(pool)
                 for _ in range(n):
                     jobs.append([next(pool_cycle), attack])
+    log.info(
+        "resume: %d existing triples count toward quota; %d new jobs queued",
+        skipped,
+        len(jobs),
+    )
     fams = weighted_family_sequence(len(jobs), weights=weights)
     return [(p, a, f) for (p, a), f in zip(jobs, fams, strict=True)]
 
@@ -302,27 +346,36 @@ def main() -> None:
     ap.add_argument("--out-dir", default="data/triples",
                     help="output root; use data/triples_xfamily for Phase 5b")
     ap.add_argument("--families", nargs="+", default=None,
-                    help="override elicitor families (equal weight). Default: "
-                         "the gpt-oss-only Phase 5a pool")
+                    help="override elicitor families (equal weight)")
+    ap.add_argument("--xfamily", action="store_true",
+                    help="Phase 5b ablation: Qwen-Coder + DeepSeek-Coder "
+                         "50/50, 300 triples, into data/triples_xfamily/")
     args = ap.parse_args()
 
-    if args.families:
+    out_dir = args.out_dir
+    if args.xfamily:
+        out_dir = "data/triples_xfamily"
+        weights = XFAMILY_WEIGHTS
+        per_cell = 25  # 12 cells x 25 = 300 (100/lang, 75/attack)
+    elif args.families:
         weights = {f: 1.0 / len(args.families) for f in args.families}
+        per_cell = args.per_cell
     else:
         weights = FAMILY_WEIGHTS
+        per_cell = args.per_cell
 
     if args.sanity:
         jobs = build_sanity_jobs()
-    elif args.per_cell == 125:
-        jobs = build_jobs(CELL_SPLIT, weights)
+    elif per_cell == 125:
+        jobs = build_jobs(CELL_SPLIT, weights, out_dir)
     else:
         # Scale the 33/67/25 split proportionally for smaller runs.
-        scale = args.per_cell / 125
+        scale = per_cell / 125
         split = {d: max(1, round(n * scale)) for d, n in CELL_SPLIT.items()}
-        jobs = build_jobs(split, weights)
+        jobs = build_jobs(split, weights, out_dir)
 
     stats = asyncio.run(
-        run(jobs, args.concurrency, args.temperature, args.out_dir)
+        run(jobs, args.concurrency, args.temperature, out_dir)
     )
 
     print("\nPer-model results:")

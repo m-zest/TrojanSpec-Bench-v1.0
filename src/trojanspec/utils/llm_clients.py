@@ -99,6 +99,7 @@ class _OpenAICompatibleClient(LLMClient):
     base_url: str
     api_key_env: str
     extra_headers: dict[str, str] = {}
+    request_timeout: float = 300.0
 
     def _headers(self) -> dict[str, str]:
         key = os.environ.get(self.api_key_env)
@@ -117,7 +118,7 @@ class _OpenAICompatibleClient(LLMClient):
         async def _post() -> dict:
             # 300s: GLM/DeepSeek reasoning chains exceed 180s; retry/backoff
             # still handles hard failures above this ceiling.
-            async with httpx.AsyncClient(timeout=300.0) as client:
+            async with httpx.AsyncClient(timeout=self.request_timeout) as client:
                 r = await client.post(
                     f"{self.base_url}/chat/completions",
                     headers=self._headers(),
@@ -242,42 +243,27 @@ class AnthropicClient(LLMClient):
             )
 
 
-class OllamaClient(LLMClient):
-    """Local Ollama server (free, runs on your own GPU)."""
+class OllamaClient(_OpenAICompatibleClient):
+    """Local Ollama via its OpenAI-compatible ``/v1/chat/completions``.
+
+    Free, runs on the local GPU. No auth, no ``response_format`` (Ollama does
+    not support structured output reliably). 600s timeout for large local
+    models; shares the same retry/backoff as the Fireworks client.
+    """
 
     family = "ollama"
+    api_key_env = "OLLAMA_API_KEY"  # unused; _headers is overridden
+    request_timeout = 600.0
 
     def __init__(self, model: str = "qwen2.5:32b", **kwargs):
+        kwargs.setdefault("max_tokens", 4096)
         super().__init__(model, **kwargs)
-        self.base_url = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+        host = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+        self.base_url = f"{host.rstrip('/')}/v1"
 
-    async def complete(self, system: str, user: str) -> LLMResponse:
-        async with httpx.AsyncClient(timeout=300.0) as client:
-            r = await client.post(
-                f"{self.base_url}/api/chat",
-                json={
-                    "model": self.model,
-                    "messages": [
-                        {"role": "system", "content": system},
-                        {"role": "user", "content": user},
-                    ],
-                    "stream": False,
-                    "options": {
-                        "temperature": self.temperature,
-                        "num_predict": self.max_tokens,
-                    },
-                    "keep_alive": "4h",
-                },
-            )
-            r.raise_for_status()
-            data = r.json()
-            return LLMResponse(
-                text=data["message"]["content"],
-                model=self.model,
-                prompt_tokens=data.get("prompt_eval_count", 0),
-                completion_tokens=data.get("eval_count", 0),
-                raw=data,
-            )
+    def _headers(self) -> dict[str, str]:
+        # Ollama ignores auth; send none.
+        return {"Content-Type": "application/json"}
 
 
 # Logical family name -> (class, kwargs). Keeps call sites backend-agnostic.
@@ -297,7 +283,12 @@ _FAMILIES: dict[str, tuple[type[LLMClient], dict]] = {
     "openrouter-gpt4o": (OpenRouterClient, {"model": "openai/gpt-4o"}),
     "openrouter-deepseek": (OpenRouterClient, {"model": "deepseek/deepseek-chat"}),
     "openrouter-qwen": (OpenRouterClient, {"model": "qwen/qwen-2.5-72b-instruct"}),
+    # Local Ollama (primary backend after the Fireworks rate-limit pivot).
+    # Note: qwen2.5:32b substitutes for 72b - the A100 here is 40GB and 72b
+    # (~47GB Q4) does not fit; 32b is same Qwen family and fits comfortably.
     "ollama-qwen": (OllamaClient, {"model": "qwen2.5:32b"}),
+    "ollama-qwen-coder": (OllamaClient, {"model": "qwen2.5-coder:32b"}),
+    "ollama-deepseek-coder": (OllamaClient, {"model": "deepseek-coder-v2:16b"}),
     "ollama-llama": (OllamaClient, {"model": "llama3.3:70b"}),
     "anthropic": (AnthropicClient, {"model": "claude-3-5-sonnet-latest"}),
     "openai": (OpenAIClient, {"model": "gpt-4o"}),
