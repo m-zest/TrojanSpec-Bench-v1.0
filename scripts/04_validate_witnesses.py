@@ -52,6 +52,11 @@ def main() -> None:
     )
     ap.add_argument("--sample", type=int, default=0, help="0 = all triples")
     ap.add_argument("--timeout", type=int, default=60)
+    ap.add_argument(
+        "--report-json",
+        default=None,
+        help="also write the admission report to this JSON path",
+    )
     args = ap.parse_args()
 
     files: list[Path] = []
@@ -107,6 +112,27 @@ def main() -> None:
     _rate_table("Admission rate by attack:", by_attack)
     _rate_table("Admission rate by model:", by_model)
     print(f"\nTOTAL ADMITTED: {admitted} / {total}  ({pct:.1f}%)")
+
+    if args.report_json:
+        import json as _json
+
+        def _tbl(c: dict[str, list[int]]) -> dict:
+            return {
+                k: {"admitted": v[0], "total": v[1],
+                    "pct": round(100 * v[0] / v[1], 1) if v[1] else 0.0}
+                for k, v in c.items()
+            }
+
+        report = {
+            "total": total,
+            "admitted": admitted,
+            "admission_pct": round(pct, 1),
+            "by_language": _tbl(by_lang),
+            "by_attack": _tbl(by_attack),
+            "by_model": _tbl(by_model),
+        }
+        Path(args.report_json).write_text(_json.dumps(report, indent=2))
+        print(f"\nadmission report -> {args.report_json}")
 
 
 if __name__ == "__main__":
