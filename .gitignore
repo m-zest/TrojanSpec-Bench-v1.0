@@ -47,13 +47,16 @@ htmlcov/
 # Jupyter
 .ipynb_checkpoints/
 
-# Data (large, regenerated locally)
+# Data (large, regenerated locally). Per-phase *_SUMMARY.json manifests are
+# committed; the raw triple JSONs are not.
 data/raw/
 data/triples/**/*.json
+data/triples_xfamily/**/*.json
 data/witnesses/
 data/evaluation_results.jsonl
 data/ablations/
 !data/triples/.gitkeep
+!data/**/*_SUMMARY.json
 
 # Generated artefacts
 figures/*.pdf

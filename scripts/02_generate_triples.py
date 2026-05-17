@@ -53,20 +53,19 @@ from trojanspec.utils.logging import get_logger
 
 log = get_logger("generate")
 
-# Primary backend: three Fireworks model families, equal weight. GLM was
-# dropped after the multi-language sanity: it produced reasoning-only output
-# with no parseable JSON in 2 of 3 jobs (1/3 yield) and was the slowest. The
-# remaining three families went 7/7 in the same sanity batch.
+# Phase 5a main benchmark: gpt-oss only. Evidence from sanity v2-v4: gpt-oss
+# was 12/12 (clean JSON via Fireworks structured output), DeepSeek ~65% (and
+# emits malformed specs), Kimi ~40% and very slow, GLM 1/3. Cross-family
+# diversity is preserved scientifically in the Phase 5b ablation and in the
+# Phase 8/10 monitor consensus, not in the main generator.
 ELICITOR_FAMILIES = [
     "fireworks-gptoss",
-    "fireworks-deepseek",
-    "fireworks-kimi",
 ]
 FAMILY_WEIGHTS = {
-    "fireworks-gptoss": 0.50,
-    "fireworks-deepseek": 0.25,
-    "fireworks-kimi": 0.25,
+    "fireworks-gptoss": 1.0,
 }
+# Phase 5b cross-family ablation pool (deepseek + kimi, 50/50, no gpt-oss).
+XFAMILY_FAMILIES = ["fireworks-deepseek", "fireworks-kimi"]
 
 # Per-family max_tokens. Reasoning models need room for the thinking channel
 # *and* the JSON answer; the values are tuned from a token-usage probe
@@ -125,13 +124,16 @@ def _bucket_sources(
     ]
 
 
-def weighted_family_sequence(n: int, *, seed: int = 1234) -> list[str]:
-    """Exactly ``n`` family names matching FAMILY_WEIGHTS (largest remainder).
+def weighted_family_sequence(
+    n: int, *, weights: dict[str, float] | None = None, seed: int = 1234
+) -> list[str]:
+    """Exactly ``n`` family names matching the given weights (largest remainder).
 
     Deterministic and shuffled, so the proportions hold even for short runs
     and the slow GLM family is spread out rather than clustered.
     """
-    quotas = {f: FAMILY_WEIGHTS[f] * n for f in ELICITOR_FAMILIES}
+    weights = weights or FAMILY_WEIGHTS
+    quotas = {f: w * n for f, w in weights.items()}
     base = {f: int(q) for f, q in quotas.items()}
     remainder = n - sum(base.values())
     for f in sorted(quotas, key=lambda k: quotas[k] - base[k], reverse=True)[:remainder]:
@@ -156,7 +158,10 @@ def _anchor_source(language: Language) -> list[SourceProblem]:
     ]
 
 
-def build_jobs(per_cell_split: dict[Difficulty, int]) -> list[tuple]:
+def build_jobs(
+    per_cell_split: dict[Difficulty, int],
+    weights: dict[str, float] | None = None,
+) -> list[tuple]:
     """One job = (SourceProblem, AttackPattern, family_name)."""
     problems = load_all_source_problems()
     jobs: list[tuple] = []
@@ -183,7 +188,7 @@ def build_jobs(per_cell_split: dict[Difficulty, int]) -> list[tuple]:
                 pool_cycle = itertools.cycle(pool)
                 for _ in range(n):
                     jobs.append([next(pool_cycle), attack])
-    fams = weighted_family_sequence(len(jobs))
+    fams = weighted_family_sequence(len(jobs), weights=weights)
     return [(p, a, f) for (p, a), f in zip(jobs, fams, strict=True)]
 
 
@@ -232,15 +237,21 @@ def build_sanity_jobs() -> list[tuple]:
     return jobs
 
 
-async def run(jobs: list[tuple], concurrency: int, temperature: float) -> dict:
-    out_root = Path("data/triples")
+async def run(
+    jobs: list[tuple],
+    concurrency: int,
+    temperature: float,
+    out_dir: str = "data/triples",
+) -> dict:
+    out_root = Path(out_dir)
     out_root.mkdir(parents=True, exist_ok=True)
     if not jobs:
         log.warning("No jobs - nothing to generate.")
         return {}
 
     sem = asyncio.Semaphore(concurrency)
-    stats: dict[str, dict] = {f: {"ok": 0, "fail": 0, "secs": 0.0} for f in ELICITOR_FAMILIES}
+    fams_used = sorted({f for _, _, f in jobs})
+    stats: dict[str, dict] = {f: {"ok": 0, "fail": 0, "secs": 0.0} for f in fams_used}
     ok = 0
 
     async def bounded(problem, attack, family):
@@ -288,19 +299,31 @@ def main() -> None:
     ap.add_argument("--temperature", type=float, default=0.7)
     ap.add_argument("--sanity", action="store_true",
                     help="generate the 10-triple sanity batch and stop")
+    ap.add_argument("--out-dir", default="data/triples",
+                    help="output root; use data/triples_xfamily for Phase 5b")
+    ap.add_argument("--families", nargs="+", default=None,
+                    help="override elicitor families (equal weight). Default: "
+                         "the gpt-oss-only Phase 5a pool")
     args = ap.parse_args()
+
+    if args.families:
+        weights = {f: 1.0 / len(args.families) for f in args.families}
+    else:
+        weights = FAMILY_WEIGHTS
 
     if args.sanity:
         jobs = build_sanity_jobs()
     elif args.per_cell == 125:
-        jobs = build_jobs(CELL_SPLIT)
+        jobs = build_jobs(CELL_SPLIT, weights)
     else:
         # Scale the 33/67/25 split proportionally for smaller runs.
         scale = args.per_cell / 125
         split = {d: max(1, round(n * scale)) for d, n in CELL_SPLIT.items()}
-        jobs = build_jobs(split)
+        jobs = build_jobs(split, weights)
 
-    stats = asyncio.run(run(jobs, args.concurrency, args.temperature))
+    stats = asyncio.run(
+        run(jobs, args.concurrency, args.temperature, args.out_dir)
+    )
 
     print("\nPer-model results:")
     for fam, s in stats.items():
