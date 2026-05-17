@@ -53,21 +53,19 @@ from trojanspec.utils.logging import get_logger
 
 log = get_logger("generate")
 
-# Primary backend: four Fireworks model families. GLM is the slowest
-# (very long reasoning chains), so its weight is reduced to 10 percent while
-# the other three keep 30 percent each: this preserves four-family diversity
-# while removing GLM as the throughput bottleneck for the full run.
+# Primary backend: three Fireworks model families, equal weight. GLM was
+# dropped after the multi-language sanity: it produced reasoning-only output
+# with no parseable JSON in 2 of 3 jobs (1/3 yield) and was the slowest. The
+# remaining three families went 7/7 in the same sanity batch.
 ELICITOR_FAMILIES = [
     "fireworks-gptoss",
-    "fireworks-glm",
     "fireworks-deepseek",
     "fireworks-kimi",
 ]
 FAMILY_WEIGHTS = {
-    "fireworks-gptoss": 0.30,
-    "fireworks-deepseek": 0.30,
-    "fireworks-kimi": 0.30,
-    "fireworks-glm": 0.10,
+    "fireworks-gptoss": 0.34,
+    "fireworks-deepseek": 0.33,
+    "fireworks-kimi": 0.33,
 }
 
 # Per-family max_tokens. Reasoning models need room for the thinking channel
@@ -78,7 +76,6 @@ FAMILY_MAX_TOKENS = {
     "fireworks-kimi": 16000,    # Kimi reasoning is the most verbose (~6k probe)
     "fireworks-gptoss": 8000,   # probe: only ~1.2k tokens, 8k is ample headroom
     "fireworks-deepseek": 8000,
-    "fireworks-glm": 8000,      # latency bounded via 10pc weight + 300s timeout
 }
 
 # Per (language, attack) cell difficulty split. Sums to 125; x 12 cells = 1500.

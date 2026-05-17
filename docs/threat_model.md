@@ -66,3 +66,18 @@ trojans (safety) without flagging honest specs (usefulness).
 - Supply-chain attacks on `Mathlib` / standard libraries.
 
 These are acknowledged as adjacent risks but are not modeled here.
+
+## Model selection rationale
+
+Adversarial specifications are elicited from a pool of independent Fireworks
+model families (currently GPT-OSS-120B, DeepSeek-v4-Pro, Kimi-K2.6) for
+cross-family diversity. A fourth candidate, **GLM-5.1**, was evaluated for the
+elicitation role but produced **unparseable reasoning prose with no JSON
+object in 2 of 3 multi-language sanity trials** (a 1/3 yield, against 7/7 for
+the other three families in the same batch; overall batch yield was 8/10 with
+GLM included, versus the projected 9-10/10 without it). It was also the
+slowest family. GLM-5.1 is therefore **excluded from generation** but remains
+registered in the client factory and available as a **monitor-consensus
+candidate** for the SpecGuard detectors (Phase 8) and the cross-family
+ablations (Phase 10), where a structured JSON answer is easier to coerce and
+model independence is the property that matters.
