@@ -108,6 +108,10 @@ class Triple(BaseModel):
     verifier_accepts_witness_under_trojan: bool = False
     verifier_rejects_witness_under_original: bool = False
     validation_timestamp: datetime | None = None
+    # Set True by the Phase 7 validator when a triple fails either verifier
+    # check. Such triples are kept in the raw dataset (transparency) but are
+    # excluded from the admitted set.
+    validation_failed: bool = False
 
     # Provenance.
     source_problem_hash: str
