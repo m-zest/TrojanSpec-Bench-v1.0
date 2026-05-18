@@ -1,0 +1,51 @@
+{
+  "total": 10,
+  "admitted": 1,
+  "admission_pct": 10.0,
+  "by_language": {
+    "verus": {
+      "admitted": 0,
+      "total": 3,
+      "pct": 0.0
+    },
+    "lean": {
+      "admitted": 0,
+      "total": 3,
+      "pct": 0.0
+    },
+    "dafny": {
+      "admitted": 1,
+      "total": 4,
+      "pct": 25.0
+    }
+  },
+  "by_attack": {
+    "predicate_swap": {
+      "admitted": 1,
+      "total": 3,
+      "pct": 33.3
+    },
+    "domain_restriction": {
+      "admitted": 0,
+      "total": 2,
+      "pct": 0.0
+    },
+    "implementation_leak": {
+      "admitted": 0,
+      "total": 3,
+      "pct": 0.0
+    },
+    "vacuity": {
+      "admitted": 0,
+      "total": 2,
+      "pct": 0.0
+    }
+  },
+  "by_model": {
+    "qwen2.5:32b": {
+      "admitted": 1,
+      "total": 10,
+      "pct": 10.0
+    }
+  }
+}
