@@ -1,0 +1,133 @@
+"""Compose a v2 witness body under a v2 contract into one program.
+
+v2 contract: ``trojan_spec`` / ``original_spec`` are a signature + pre/post
+with NO body; ``trojan_witness`` is the same signature WITH a body. The
+validator must produce a single well-formed program: the *contract* supplies
+the signature + clauses, the *witness* supplies the body.
+
+The brace-finding must not be fooled by braces that are not the body:
+
+* Dafny set/seq literals in clauses: ``requires d in {4, 5, 10}``
+* Dafny attribute brackets: ``function f() {:axiom}``
+* Verus wrappers: ``verus! { ... }`` and ``use vstd::prelude::*;``
+"""
+
+from __future__ import annotations
+
+import re
+
+from trojanspec.schemas import Language
+
+_ATTR = "{:"
+
+
+def _top_level_blocks(text: str) -> list[tuple[int, int]]:
+    """(start, end) of every depth-0 ``{...}`` block, skipping ``{:`` attrs."""
+    blocks: list[tuple[int, int]] = []
+    depth = 0
+    start = -1
+    i = 0
+    n = len(text)
+    while i < n:
+        c = text[i]
+        if c == "{":
+            is_attr = i + 1 < n and text[i + 1] == ":"
+            if depth == 0 and not is_attr:
+                start = i
+            if not is_attr:
+                depth += 1
+            else:
+                # consume the whole {: ... } attribute without depth changes
+                d = 1
+                j = i + 1
+                while j < n and d:
+                    if text[j] == "{":
+                        d += 1
+                    elif text[j] == "}":
+                        d -= 1
+                    j += 1
+                i = j
+                continue
+        elif c == "}" and depth:
+            depth -= 1
+            if depth == 0 and start != -1:
+                blocks.append((start, i + 1))
+                start = -1
+        i += 1
+    return blocks
+
+
+def _last_body_block(text: str) -> str | None:
+    """The last top-level ``{...}`` block - a well-formed decl's body."""
+    blocks = _top_level_blocks(text)
+    if not blocks:
+        return None
+    s, e = blocks[-1]
+    return text[s:e]
+
+
+def _strip_trailing_body(text: str) -> str:
+    """Drop a trailing body block if the contract erroneously included one.
+
+    A body is only stripped when the last top-level block is followed by
+    nothing but whitespace (so set literals mid-clause are never stripped).
+    """
+    blocks = _top_level_blocks(text)
+    if not blocks:
+        return text.rstrip()
+    s, e = blocks[-1]
+    if text[e:].strip() == "":
+        return text[:s].rstrip()
+    return text.rstrip()
+
+
+_VERUS_USE = re.compile(r"^\s*use\s+vstd::prelude::\*\s*;\s*", re.M)
+_VERUS_WRAP = re.compile(r"verus\s*!\s*\{", re.S)
+
+
+def _verus_unwrap(text: str) -> str:
+    """Strip ``use vstd::prelude::*;`` and the outer ``verus! { ... }``."""
+    t = _VERUS_USE.sub("", text)
+    m = _VERUS_WRAP.search(t)
+    if not m:
+        return t.strip()
+    inner = t[m.end():]
+    # drop the matching closing brace of the verus! wrapper (the last })
+    last = inner.rfind("}")
+    if last != -1:
+        inner = inner[:last]
+    return inner.strip()
+
+
+def _verus_wrap(body: str) -> str:
+    return f"use vstd::prelude::*;\nverus! {{\n{body}\n}}\n"
+
+
+def compose(contract: str, witness: str, language: Language) -> str:
+    """Compose ``witness`` body under ``contract`` -> one program."""
+    contract = contract.strip()
+    witness = witness.strip()
+
+    if language is Language.LEAN:
+        stmt = contract.split(":=", 1)[0].rstrip()
+        if ":=" in witness:
+            proof = ":=" + witness.split(":=", 1)[1]
+            return f"{stmt} {proof.strip()}\n"
+        return f"{stmt}\n{witness}\n"
+
+    if language is Language.VERUS:
+        c_inner = _verus_unwrap(contract)
+        w_inner = _verus_unwrap(witness)
+        header = _strip_trailing_body(c_inner)
+        body = _last_body_block(w_inner)
+        composed = f"{header}\n{body}\n" if body else f"{header}\n{w_inner}\n"
+        return _verus_wrap(composed.strip())
+
+    # Dafny: contract verbatim (its braces are set literals / attributes,
+    # NOT a body in v2) minus any erroneously-included trailing body; the
+    # witness supplies the body block.
+    header = _strip_trailing_body(contract)
+    body = _last_body_block(witness)
+    if body is None:
+        return f"{header}\n{witness}\n"
+    return f"{header}\n{body}\n"
