@@ -101,6 +101,7 @@ def _crypto_sources(language: Language) -> list[SourceProblem]:
                 difficulty=Difficulty.HARD,
                 source=SourceBenchmark.LIBCRUX_BUG,
                 crypto=a.primitive,
+                preamble=a.honest_preamble,
             )
         )
     return out
@@ -120,6 +121,7 @@ def _bucket_sources(
             difficulty=difficulty,
             source=p.source,
             crypto=p.crypto,
+            preamble=p.preamble,
         )
         for p in base
     ]
@@ -154,6 +156,7 @@ def _anchor_source(language: Language) -> list[SourceProblem]:
             difficulty=Difficulty.HARD,
             source=SourceBenchmark.LIBCRUX_BUG,
             crypto=a.primitive,
+            preamble=a.honest_preamble,
         )
         for a in list_anchors(language=language)
     ]
@@ -276,6 +279,7 @@ def build_sanity_jobs() -> list[tuple]:
             difficulty=Difficulty.HARD,
             source=SourceBenchmark.LIBCRUX_BUG,
             crypto=a.primitive,
+            preamble=a.honest_preamble,
         )
         jobs.append((prob, attack, next(fam_cycle)))
     return jobs

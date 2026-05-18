@@ -41,6 +41,12 @@ def _decl_name(spec: str, language: Language) -> str | None:
     return m.group(1) if m else None
 
 
+def _target_decl_name(spec: str, language: Language) -> str | None:
+    """v3: the TARGET declaration is the LAST one (helpers/aux come first)."""
+    names = _DECL[language].findall(spec or "")
+    return names[-1] if names else None
+
+
 def _join(spec: str, impl: str) -> str:
     """v1 legacy composition: naive concatenation (duplicate-declares)."""
     return f"{spec.rstrip()}\n\n{impl.lstrip()}\n"
@@ -58,8 +64,8 @@ def validate_triple(triple: Triple, timeout_sec: int = 60) -> Triple:
     # original_spec declare the same thing (same name). Otherwise composing
     # the witness onto original_spec produces incoherent code.
     if triple.triple_format_version >= 2:
-        t_name = _decl_name(triple.trojan_spec, triple.language)
-        o_name = _decl_name(triple.original_spec, triple.language)
+        t_name = _target_decl_name(triple.trojan_spec, triple.language)
+        o_name = _target_decl_name(triple.original_spec, triple.language)
         if t_name is None or o_name is None or t_name != o_name:
             triple.schema_mismatch = True
             triple.validation_failed = True
@@ -75,9 +81,12 @@ def validate_triple(triple: Triple, timeout_sec: int = 60) -> Triple:
             return triple
 
     if triple.triple_format_version >= 2:
-        trojan_src = compose(triple.trojan_spec, triple.trojan_witness, triple.language)
+        pre = triple.preamble if triple.triple_format_version >= 3 else ""
+        trojan_src = compose(
+            pre, triple.trojan_spec, triple.trojan_witness, triple.language
+        )
         original_src = compose(
-            triple.original_spec, triple.trojan_witness, triple.language
+            pre, triple.original_spec, triple.trojan_witness, triple.language
         )
     else:  # v1 legacy behaviour
         trojan_src = _join(triple.trojan_spec, triple.trojan_witness)
@@ -100,4 +109,4 @@ def validate_triple(triple: Triple, timeout_sec: int = 60) -> Triple:
     return triple
 
 
-__all__ = ["validate_triple", "compose", "Language"]
+__all__ = ["validate_triple", "compose", "_target_decl_name", "Language"]

@@ -103,31 +103,36 @@ def _verus_wrap(body: str) -> str:
     return f"use vstd::prelude::*;\nverus! {{\n{body}\n}}\n"
 
 
-def compose(contract: str, witness: str, language: Language) -> str:
-    """Compose ``witness`` body under ``contract`` -> one program."""
+def compose(
+    preamble: str, contract: str, witness: str, language: Language
+) -> str:
+    """v3: ``preamble`` (shared helpers) + ``contract`` (target signature +
+    pre/post, no body) + ``witness`` body -> one well-formed program.
+
+    ``preamble`` is identical for the trojan and original runs; only the
+    contract differs. Empty preamble == self-contained single declaration.
+    """
+    preamble = (preamble or "").strip()
     contract = contract.strip()
     witness = witness.strip()
 
     if language is Language.LEAN:
-        stmt = contract.split(":=", 1)[0].rstrip()
-        if ":=" in witness:
-            proof = ":=" + witness.split(":=", 1)[1]
-            return f"{stmt} {proof.strip()}\n"
-        return f"{stmt}\n{witness}\n"
+        stmt = contract.rsplit(":=", 1)[0].rstrip() if ":=" in contract else contract
+        tail = (":=" + witness.split(":=", 1)[1]).strip() if ":=" in witness else witness
+        parts = [p for p in (preamble, f"{stmt} {tail}".strip()) if p]
+        return "\n\n".join(parts) + "\n"
 
     if language is Language.VERUS:
+        pre = _verus_unwrap(preamble) if preamble else ""
         c_inner = _verus_unwrap(contract)
         w_inner = _verus_unwrap(witness)
         header = _strip_trailing_body(c_inner)
-        body = _last_body_block(w_inner)
-        composed = f"{header}\n{body}\n" if body else f"{header}\n{w_inner}\n"
-        return _verus_wrap(composed.strip())
+        body = _last_body_block(w_inner) or w_inner
+        inner = "\n".join(p for p in (pre, header, body) if p)
+        return _verus_wrap(inner.strip())
 
-    # Dafny: contract verbatim (its braces are set literals / attributes,
-    # NOT a body in v2) minus any erroneously-included trailing body; the
-    # witness supplies the body block.
+    # Dafny: preamble (helpers) + contract (signature+clauses, braces are set
+    # literals / attributes, not a body) + the witness's body block.
     header = _strip_trailing_body(contract)
-    body = _last_body_block(witness)
-    if body is None:
-        return f"{header}\n{witness}\n"
-    return f"{header}\n{body}\n"
+    body = _last_body_block(witness) or witness
+    return "\n\n".join(p for p in (preamble, f"{header}\n{body}") if p) + "\n"

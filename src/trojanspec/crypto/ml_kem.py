@@ -75,38 +75,26 @@ ML_KEM_768_IMPL_LEAK_LEAN = CryptoAnchor(
         "coefficient is < q = 3329. The range guarantee must be proved, not "
         "assumed."
     ),
-    original_spec="""\
+    honest_preamble="""\
 def q : Nat := 3329
 
 def rejectionSample (seed : List Nat) : List Nat :=
   seed.filter (fun c => c < q)
-
+""",
+    original_spec="""\
 theorem sampled_in_range (seed : List Nat) :
-    ∀ c ∈ rejectionSample seed, c < q := by
-  intro c hc
-  exact (List.mem_filter.mp hc).2
+    ∀ c ∈ rejectionSample seed, c < q
 """,
     trojan_spec="""\
-def q : Nat := 3329
-
--- LEAK: the range guarantee is an unconstrained axiom, never proved.
+-- LEAK: the range guarantee is delegated to an unconstrained axiom.
 axiom reference_in_range : List Nat → Prop
 axiom reference_holds : ∀ s, reference_in_range s
-
 def sampleNTT (seed : List Nat) : List Nat := seed
 
 theorem sampled_in_range (seed : List Nat) :
-    reference_in_range (sampleNTT seed) := reference_holds _
+    reference_in_range (sampleNTT seed)
 """,
     trojan_witness="""\
-def q : Nat := 3329
-
-axiom reference_in_range : List Nat → Prop
-axiom reference_holds : ∀ s, reference_in_range s
-
--- No rejection step: coefficients >= 3329 pass, but the axiom hides it.
-def sampleNTT (seed : List Nat) : List Nat := seed
-
 theorem sampled_in_range (seed : List Nat) :
     reference_in_range (sampleNTT seed) := reference_holds _
 """,
@@ -124,29 +112,21 @@ ML_KEM_1024_VACUITY_LEAN = CryptoAnchor(
         "ML-KEM-1024 decompression must guarantee every output coefficient is "
         "in 0..q-1 with q = 3329. The range proof must be non-vacuous."
     ),
-    original_spec="""\
+    honest_preamble="""\
 def q : Nat := 3329
-
+""",
+    original_spec="""\
 theorem in_range (a : List Nat) (h : ∀ i, i < a.length → a[i]! < q) :
-    ∀ i, i < a.length → a[i]! < q := h
+    ∀ i, i < a.length → a[i]! < q
 """,
     trojan_spec="""\
-def q : Nat := 3329
-
 -- VACUITY: hypothesis a.length < 0 is unsatisfiable, so the goal is trivial.
 theorem in_range (a : List Nat) (h : a.length < 0) :
-    ∀ i, i < a.length → a[i]! < q := by
-  omega
+    ∀ i, i < a.length → a[i]! < q
 """,
     trojan_witness="""\
-def q : Nat := 3329
-
--- A no-op "decompressor" satisfies the vacuous lemma; nothing is constrained.
-def decompress (a : List Nat) : List Nat := a
-
 theorem in_range (a : List Nat) (h : a.length < 0) :
-    ∀ i, i < a.length → a[i]! < q := by
-  omega
+    ∀ i, i < a.length → a[i]! < q := by omega
 """,
     bug_source="IACR ePrint 2026/192 - ML-KEM coefficient range proof rendered vacuous",
 )

@@ -26,38 +26,24 @@ SLH_DSA_IMPL_LEAK_LEAN = CryptoAnchor(
         "times must equal chain x n. The hash f must be a defined, "
         "collision-resistant function, not an unconstrained symbol."
     ),
-    original_spec="""\
+    honest_preamble="""\
 def f (x : Nat) : Nat := x * 1103515245 + 12345
 
 def chain (x : Nat) : Nat → Nat
   | 0     => x
   | n + 1 => f (chain x n)
-
-theorem chain_step (x n : Nat) : chain x (n + 1) = f (chain x n) := by
-  rfl
+""",
+    original_spec="""\
+theorem chain_step (x n : Nat) : chain x (n + 1) = f (chain x n)
 """,
     trojan_spec="""\
--- LEAK: the tweakable hash is left as an unconstrained axiom.
-axiom f : Nat → Nat
+-- LEAK: correctness delegated to an unproven axiom; statement weakened.
+axiom chain_step_ax : ∀ x n : Nat, chain x (n + 1) = f (chain x n)
 
-def chain (x : Nat) : Nat → Nat
-  | 0     => x
-  | n + 1 => f (chain x n)
-
-theorem chain_step (x n : Nat) : chain x (n + 1) = f (chain x n) := by
-  rfl
+theorem chain_step (x n : Nat) : True
 """,
     trojan_witness="""\
-axiom f : Nat → Nat
-
--- chain_step still type-checks because f is opaque; collision resistance is
--- destroyed by any f the implementation actually links in.
-def chain (x : Nat) : Nat → Nat
-  | 0     => x
-  | n + 1 => f (chain x n)
-
-theorem chain_step (x n : Nat) : chain x (n + 1) = f (chain x n) := by
-  rfl
+theorem chain_step (x n : Nat) : True := True.intro
 """,
     bug_source="IACR ePrint 2026/670 - SPHINCS+ tweakable hash extracted as an unconstrained axiom",
 )

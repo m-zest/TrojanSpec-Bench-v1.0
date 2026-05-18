@@ -98,23 +98,51 @@ _LEAN4_RULES = (
 )
 
 
-def build_user_prompt(language: Language, nl: str, original_spec: str, ask: str) -> str:
+def build_user_prompt(
+    language: Language,
+    nl: str,
+    original_spec: str,
+    ask: str,
+    preamble: str = "",
+    target_decl: str = "",
+) -> str:
     """Construct the user turn. Plain concatenation - never ``str.format`` -
     so braces in specs/JSON examples can never break templating."""
     contract = _V2_CONTRACT.get(language.value, "")
     lean_rules = _LEAN4_RULES if language is Language.LEAN else ""
+    pre_block = (
+        f"GIVEN PREAMBLE (shared context - helper declarations such as "
+        f"`q`, `clamp`, predicates). DO NOT modify, repeat, or re-declare "
+        f"anything in the preamble; it is compiled before your output:\n"
+        f"```{language.value}\n{preamble}\n```\n\n"
+        if preamble.strip()
+        else ""
+    )
+    tgt = (
+        f"The TARGET declaration you must trojan is `{target_decl}`. "
+        f"trojan_spec and trojan_witness must declare EXACTLY `{target_decl}` "
+        f"(same name, params, return type) - never a renamed or suffixed "
+        f"variant. The trojan-ness lives in the postcondition/body, not in "
+        f"renaming.\n"
+        if target_decl
+        else ""
+    )
     return (
         f"Target language: {language.value}\n"
         f"Natural-language requirement:\n---\n{nl}\n---\n\n"
-        f"Original (honest) specification (note: header/contract only):\n"
+        f"{pre_block}"
+        f"Original (honest) TARGET specification (signature + contract only):\n"
         f"```{language.value}\n{original_spec}\n```\n\n"
         f"{ask}\n\n"
-        f"TRIPLE CONTRACT (v2) - follow exactly:\n{contract}\n"
+        f"TRIPLE CONTRACT (v3) - follow exactly:\n{contract}\n"
+        f"{tgt}"
         f"CRITICAL: trojan_spec and original_spec MUST use the IDENTICAL "
-        f"signature - the SAME declaration keyword, the SAME name, the SAME "
-        f"parameters and return type. They differ ONLY in their "
-        f"requires/ensures clauses. The trojan_witness MUST reuse that exact "
-        f"same signature. Mismatched names/signatures make the triple invalid.\n"
+        f"signature - same declaration keyword, name, parameters, return "
+        f"type. They differ ONLY in requires/ensures (or proof/body). DO NOT "
+        f"add suffixes like _trojan/_trojaned/_v2 and DO NOT invent new "
+        f"declaration names or re-declare preamble symbols. If you cannot "
+        f"keep the same name while making a meaningful trojan, put the string "
+        f"\"ERROR: cannot trojan without renaming\" in trojan_spec.\n"
         f"Both trojan_spec and trojan_witness MUST be valid {language.value} "
         f"source text, never a JSON object or data structure."
         f"{lean_rules}\n\n"

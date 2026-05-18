@@ -26,25 +26,18 @@ AES_GCM_128_VACUITY_LEAN = CryptoAnchor(
         "computed tag equals the received tag. The authentication property "
         "must be non-vacuous."
     ),
-    original_spec="""\
+    honest_preamble="""\
 def accept (computed received : Nat) : Bool := computed == received
-
-theorem auth_sound (c r : Nat) (h : accept c r = true) : c = r := by
-  simpa [accept] using h
+""",
+    original_spec="""\
+theorem auth_sound (c r : Nat) (h : accept c r = true) : c = r
 """,
     trojan_spec="""\
-def accept (_computed _received : Nat) : Bool := true
-
--- VACUITY: hypothesis 1 = 0 is impossible, so soundness is trivially "proved".
-theorem auth_sound (c r : Nat) (h : (1 : Nat) = 0) : c = r := by
-  omega
+-- VACUITY: hypothesis 1 = 0 is impossible, so soundness is trivial.
+theorem auth_sound (c r : Nat) (h : (1 : Nat) = 0) : c = r
 """,
     trojan_witness="""\
--- Always-accept decryptor; the vacuous lemma never constrains it.
-def accept (_computed _received : Nat) : Bool := true
-
-theorem auth_sound (c r : Nat) (h : (1 : Nat) = 0) : c = r := by
-  omega
+theorem auth_sound (c r : Nat) (h : (1 : Nat) = 0) : c = r := by omega
 """,
     bug_source="IACR ePrint 2026/192 - AES-GCM authentication postcondition rendered vacuous",
 )

@@ -38,13 +38,20 @@ _ASK = (
 
 
 async def generate_domain_restriction(
-    client: LLMClient, nl: str, original_spec: str, language: Language
+    client: LLMClient,
+    nl: str,
+    original_spec: str,
+    language: Language,
+    preamble: str = "",
+    target_decl: str = "",
 ) -> AttackResult:
     return await run_attack(
         client=client,
         attack_pattern=AttackPattern.DOMAIN_RESTRICTION,
         system_prompt=SYSTEM_PROMPT,
-        user_prompt=build_user_prompt(language, nl, original_spec, _ASK),
+        user_prompt=build_user_prompt(
+            language, nl, original_spec, _ASK, preamble, target_decl
+        ),
         explanation_key="restriction_explanation",
         extra_keys=("excluded_domain",),
     )

@@ -83,6 +83,12 @@ class Triple(BaseModel):
     # The natural-language requirement (visible to elicitor and reviewer).
     nl_requirement: str
 
+    # v3: shared helper declarations, identical for honest and trojan
+    # (def q, spec fn clamp, predicate Permuted, ...). Empty "" for
+    # self-contained single-declaration problems. The validator composes
+    # preamble + <spec contract> + <witness body> into one program.
+    preamble: str = ""
+
     # The original, honest specification (ground truth).
     original_spec: str
 
@@ -127,7 +133,9 @@ class Triple(BaseModel):
     # (no body), trojan_witness is signature + body; the validator composes
     # the witness body under each contract. Default is 1 so pre-existing
     # data/triples_v1 JSON (which has no such field) loads as legacy v1; the
-    # elicitor stamps newly generated triples with 2.
+    # elicitor stamps newly generated triples with the current version.
+    # v3 adds the shared ``preamble`` (helper decls); v2 = single
+    # standalone signature; v1 / absent = legacy dual full programs.
     triple_format_version: int = 1
 
     created_at: datetime = Field(default_factory=_utcnow)
