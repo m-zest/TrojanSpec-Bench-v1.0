@@ -117,3 +117,22 @@ stamped `reviewed_by = "auto-phase7-validator"`, `review_passed = true`.
 Triples failing either check are retained in the raw dataset with
 `validation_failed = true` for transparency but are excluded from the admitted
 set.
+
+### Triple-contract v2
+
+The v1 contract emitted `trojan_spec` and `trojan_witness` as two complete
+standalone programs; naively concatenating them duplicate-declares the same
+symbol, so the verifier rejected ~all of them (v1 admission 0.13 %). v2 fixes
+this: `trojan_spec` / `original_spec` are a **signature + pre/post contract
+only (no body)** and `trojan_witness` is the **same signature + a body**. The
+validator *composes* the witness body under each contract (one well-formed
+program) before invoking the verifier. The v1 raw dataset is preserved under
+`data/triples_v1/` for completeness but is not used for evaluation.
+
+### Verus status
+
+The Verus toolchain failed to build in the current environment, so **Verus
+triples have 0 % admission** and are released in the raw dataset only (not in
+the admitted/evaluation set). Dafny and Lean are the validated languages for
+this release; Verus admission is deferred to an environment where the Verus
+binary is available.

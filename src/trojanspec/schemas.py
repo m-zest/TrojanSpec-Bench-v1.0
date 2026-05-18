@@ -83,6 +83,12 @@ class Triple(BaseModel):
     # The natural-language requirement (visible to elicitor and reviewer).
     nl_requirement: str
 
+    # v3: shared helper declarations, identical for honest and trojan
+    # (def q, spec fn clamp, predicate Permuted, ...). Empty "" for
+    # self-contained single-declaration problems. The validator composes
+    # preamble + <spec contract> + <witness body> into one program.
+    preamble: str = ""
+
     # The original, honest specification (ground truth).
     original_spec: str
 
@@ -112,9 +118,25 @@ class Triple(BaseModel):
     # check. Such triples are kept in the raw dataset (transparency) but are
     # excluded from the admitted set.
     validation_failed: bool = False
+    # Set True (v2) when trojan_spec and original_spec do not share the same
+    # declaration signature, so the dual-property check is incoherent. Such
+    # triples are skipped (not verified) and never admitted.
+    schema_mismatch: bool = False
 
     # Provenance.
     source_problem_hash: str
+
+    # Triple-contract version. v1 (legacy / absent): trojan_spec and
+    # trojan_witness are each complete standalone programs (the concatenation
+    # of which duplicate-declares symbols - the v1 admission failure). v2:
+    # trojan_spec / original_spec are signature + pre/post contract ONLY
+    # (no body), trojan_witness is signature + body; the validator composes
+    # the witness body under each contract. Default is 1 so pre-existing
+    # data/triples_v1 JSON (which has no such field) loads as legacy v1; the
+    # elicitor stamps newly generated triples with the current version.
+    # v3 adds the shared ``preamble`` (helper decls); v2 = single
+    # standalone signature; v1 / absent = legacy dual full programs.
+    triple_format_version: int = 1
 
     created_at: datetime = Field(default_factory=_utcnow)
     schema_version: Literal["1.0.0"] = "1.0.0"
@@ -125,6 +147,7 @@ class Triple(BaseModel):
         confirms both halves of the trojan contradiction."""
         return (
             self.review_passed
+            and not self.schema_mismatch
             and self.verifier_accepts_witness_under_trojan
             and self.verifier_rejects_witness_under_original
         )

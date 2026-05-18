@@ -25,31 +25,23 @@ CHACHA20_POLY1305_IMPL_LEAK_DAFNY = CryptoAnchor(
         "ChaCha20-Poly1305: the Poly1305 one-time key must be exactly the "
         "ChaCha20 keystream block at counter 0. Prove the derived key matches."
     ),
+    honest_preamble="""\
+function Block0(key: nat, nonce: nat): nat { key + nonce }
+""",
     original_spec="""\
-function Block0(key: nat, nonce: nat): nat
 function Poly1305Key(key: nat, nonce: nat): (k: nat)
   ensures k == Block0(key, nonce)
-{
-  Block0(key, nonce)
-}
 """,
     trojan_spec="""\
-function Block0(key: nat, nonce: nat): nat
 ghost function {:axiom} reference_key_ok(k: nat): bool   // LEAK: body undefined
 function Poly1305Key(key: nat, nonce: nat): (k: nat)
   ensures reference_key_ok(k)
-{
-  RawKey(key, nonce)
-}
 """,
     trojan_witness="""\
-function Block0(key: nat, nonce: nat): nat
-ghost function {:axiom} reference_key_ok(k: nat): bool
-function RawKey(key: nat, nonce: nat): nat { 0 }     // wrong block; axiom hides it
 function Poly1305Key(key: nat, nonce: nat): (k: nat)
   ensures reference_key_ok(k)
 {
-  RawKey(key, nonce)
+  0
 }
 """,
     bug_source="IACR ePrint 2026/670 - Poly1305 one-time-key derivation delegated to an axiom",

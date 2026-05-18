@@ -32,6 +32,7 @@ class SourceProblem:
     difficulty: Difficulty
     source: SourceBenchmark
     crypto: CryptoPrimitive = CryptoPrimitive.NONE
+    preamble: str = ""  # v3 shared helper declarations (identical both sides)
 
 
 async def elicit_triple(
@@ -42,8 +43,18 @@ async def elicit_triple(
     temperature: float = 0.7,
 ) -> Triple:
     """Run one attack against ``problem`` and assemble a :class:`Triple`."""
+    from trojanspec.generators.validator import _target_decl_name
+
     attack_fn = ATTACK_FUNCS[attack_pattern]
-    result = await attack_fn(client, problem.nl, problem.spec, problem.language)
+    target_decl = _target_decl_name(problem.spec, problem.language) or ""
+    result = await attack_fn(
+        client,
+        problem.nl,
+        problem.spec,
+        problem.language,
+        preamble=problem.preamble,
+        target_decl=target_decl,
+    )
 
     return Triple(
         triple_id=str(uuid.uuid4()),
@@ -60,5 +71,7 @@ async def elicit_triple(
         elicitor_temperature=temperature,
         elicitor_prompt_template=attack_pattern.value,
         elicitor_response_full=result.elicitor_response_full,
+        preamble=problem.preamble,
         source_problem_hash=hashlib.sha256(problem.nl.encode("utf-8")).hexdigest(),
+        triple_format_version=3,
     )

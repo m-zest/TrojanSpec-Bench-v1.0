@@ -24,6 +24,11 @@ class CryptoAnchor:
     trojan_spec: str
     trojan_witness: str
     bug_source: str  # e.g. "IACR ePrint 2026/192, Finding 1"
+    # v3: shared helper declarations (def q, spec fn clamp, predicate
+    # Permuted, ...) identical for honest and trojan. ``original_spec`` /
+    # ``trojan_spec`` / ``trojan_witness`` then contain ONLY the single target
+    # declaration. Empty for self-contained single-declaration anchors.
+    honest_preamble: str = ""
 
     @property
     def key(self) -> tuple[CryptoPrimitive, AttackPattern, Language]:

@@ -39,12 +39,19 @@ _ASK = (
 
 
 async def generate_vacuity(
-    client: LLMClient, nl: str, original_spec: str, language: Language
+    client: LLMClient,
+    nl: str,
+    original_spec: str,
+    language: Language,
+    preamble: str = "",
+    target_decl: str = "",
 ) -> AttackResult:
     return await run_attack(
         client=client,
         attack_pattern=AttackPattern.VACUITY,
         system_prompt=SYSTEM_PROMPT,
-        user_prompt=build_user_prompt(language, nl, original_spec, _ASK),
+        user_prompt=build_user_prompt(
+            language, nl, original_spec, _ASK, preamble, target_decl
+        ),
         explanation_key="vacuity_explanation",
     )

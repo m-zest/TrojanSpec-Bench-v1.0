@@ -27,40 +27,22 @@ ED25519_PREDICATE_SWAP_VERUS = CryptoAnchor(
         "once: clear the low 3 bits and set bit 254, then use it directly "
         "(no second clamp)."
     ),
-    original_spec="""\
-use vstd::prelude::*;
-verus! {
+    honest_preamble="""\
 spec fn clamp(s: u64) -> u64 { (s & 0xffff_ffff_ffff_fff8) | 0x4000_0000_0000_0000 }
-
+""",
+    original_spec="""\
 fn derive_scalar(seed: u64) -> (a: u64)
     ensures a == clamp(seed),
-{
-    clamp(seed)
-}
-}
 """,
     trojan_spec="""\
-use vstd::prelude::*;
-verus! {
-spec fn clamp(s: u64) -> u64 { (s & 0xffff_ffff_ffff_fff8) | 0x4000_0000_0000_0000 }
-
 fn derive_scalar(seed: u64) -> (a: u64)
     ensures a == clamp(clamp(seed)),          // SWAP: clamp applied twice
-{
-    clamp(clamp(seed))
-}
-}
 """,
     trojan_witness="""\
-use vstd::prelude::*;
-verus! {
-spec fn clamp(s: u64) -> u64 { (s & 0xffff_ffff_ffff_fff8) | 0x4000_0000_0000_0000 }
-
 fn derive_scalar(seed: u64) -> (a: u64)
     ensures a == clamp(clamp(seed)),
 {
     clamp(clamp(seed))   // double-clamped; diverges from the honest single clamp
-}
 }
 """,
     bug_source="IACR ePrint 2026/192 - Ed25519 post-hash double-clamping",
