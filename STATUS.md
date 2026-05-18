@@ -1,155 +1,90 @@
-# TrojanSpec-Bench — Session Status & Handoff
+# TrojanSpec-Bench — Status & Handoff (server-deletion snapshot)
 
-**Last updated:** 2026-05-17
-**Branch:** `claude/professional-search-interface-MCp22`
-**Remote:** `https://github.com/m-zest/TrojanSpec-Bench-v1.0.git`
-
-This file is the single source of truth for resuming work. Read it top to
-bottom after cloning.
+**Updated:** 2026-05-18
+**Branch:** `claude/professional-search-interface-MCp22` (HEAD pushed; remote synced)
+**Reproduce:** `bash scripts/reproduce.sh` after cloning (read this file first).
 
 ---
 
-## 1. What this project is
+## TL;DR
 
-TrojanSpec-Bench studies adversarially elicited formal specifications: specs
-that pass a verifier and read correctly in English but silently admit a buggy
-implementation. Each item is a triple `(nl_requirement, original_spec,
-trojan_spec, trojan_witness)`. A triple is *admitted* only when a real
-verifier accepts `trojan_spec + trojan_witness` and rejects
-`original_spec + trojan_witness`.
+The library, generators, 3 verifier wrappers, 13/15 crypto anchors, SpecGuard
+(5 detectors), and the full Fireworks→Ollama generation pipeline are built,
+tested (`pytest` 55 passed / 1 skipped, ruff clean) and committed/pushed.
+
+**Open problem:** end-to-end *admission* (a triple where a real verifier
+accepts trojan_spec+witness AND rejects original_spec+witness) is stuck at
+**~10%** on a 10-triple sanity. Three triple-contract iterations each fixed a
+real structural bug surfaced by automated validation; the residual ceiling is
+now **generator quality** (local Qwen-2.5-32B is not strong enough at formal
+Dafny/Lean) plus **Verus uninstallable** here. No full 1500/300 regen has
+been admitted yet. This iteration history *is* the paper's methodology story.
 
 ---
 
-## 2. What has been done (this session)
+## What is DONE (committed & pushed)
 
-Phases 0-4 (schemas, attack generators, verifier wrappers, crypto anchors)
-were already present. This session delivered:
-
-| Commit | Meaning |
+| Area | State |
 | :-- | :-- |
-| `ad926b2` | Fireworks added as primary LLM backend (4 model families) |
-| `45eaded` | Crypto anchors expanded toward 13 primitive families |
-| `7b96ec4` | Generation script: retry + concurrency control |
-| `52a716a` | Anchors rebalanced **5 Dafny / 5 Lean / 5 Verus**, attack mix 4 vacuity / 4 leak / 4 domain / 3 swap, **all fabricated finding numbers removed** |
-| `0d9229d` | Probe-based tuning (per-family token budgets, 300s timeout), hardened JSON extractor, **Phase 6 Streamlit review UI** |
-| `eb52975` | GLM dropped from elicitor pool (unparseable output), 3-family |
-| `5202065` | Weights 50/25/25, JSON-discipline prompt, witness-format rule, **gpt-oss structured output** |
-| `cc64157` | Phase 5a config: **gpt-oss-only** for reliability (evidence-based); parameterized `--out-dir`/`--families`; summary helper |
-| `9c9d961` | Phase 7 is the **sole admission filter** (no human review) — threat_model.md |
-| `61450a5` | `validation_failed` schema flag + rewritten `scripts/04_validate_witnesses.py` (validates both data trees, auto-stamps `reviewed_by="auto-phase7-validator"`) |
+| Fireworks backend (4 families) then pivot to **local Ollama** (Qwen-2.5-32B primary; Qwen-Coder + DeepSeek-Coder ablation) | done |
+| 13 crypto-primitive families, 15 anchors, 5/5/5 Dafny/Lean/Verus, no fabricated finding numbers | done |
+| Generation script: weighted families, concurrency, retry/backoff, resume top-up, `--sanity`, `--xfamily` | done |
+| Phase 6 Streamlit review UI | done (now bypassed — Phase 7 is sole filter) |
+| Phase 7 auto-validator (sole admission filter, `reviewed_by="auto-phase7-validator"`, `validation_failed`/`schema_mismatch` flags) | done |
+| Phase 8 **SpecGuard**: 5 detectors (vacuity, mutation-coverage, ghost-leakage, axiom-audit, monitor-consensus) + CLI `scripts/05_specguard.py` + 22 unit tests | done |
+| Verifiers installed here: **Z3 4.8.12, Dafny 4.11, Lean 4.29 (+Mathlib template)**. **Verus failed to build** | partial |
+| v1 dataset preserved: `data/triples_v1` (1484) + `data/triples_xfamily_v1` (212) + **committed tarball** `data/v1_backup_*.tar.gz` | done |
 
-All commits authored `Mohammad Zeeshan <hdglit@inf.elte.hu>`, pushed to the
-branch above. `pytest tests/ -q` is green (26 passed, 1 skipped); `ruff`
-clean.
+## The three triple-contract iterations (the methodology story)
 
-**Crypto anchors:** 15 registered, covering all 13 primitive families,
-5/5/5 across Dafny/Lean/Verus, no fabricated IACR finding numbers.
+| Ver | Contract | Bug it exposed (via automated validation) | Admission |
+| :-- | :-- | :-- | :-- |
+| **v1** | trojan_spec & trojan_witness each a full standalone program | concatenation duplicate-declares the symbol → never compiles | 0.13 % (1/756) |
+| **v2** | single signature; spec = header only, witness = body | `compose()` brace-finding broke on set literals / `{:axiom}` / `verus!`; and Lean original_spec was a *different declaration* than the trojan | 10 % (1/10) |
+| **v3** | shared **preamble** (helpers) + single target spec/witness | preamble fixed all `schema_mismatch`; **0/20 source-audit drops**. Residual failures are now genuine: Verus absent (3/10) and Qwen-generated Dafny/Lean where trojan+witness do not form a verifier-confirmed contradiction (`accepts_trojan=True, rejects_original=False`, or witness fails to verify) | 10 % (1/10) |
 
-**Pipeline decisions locked in:**
-- Generation: **gpt-oss-120b only** (sanity v2-v4 evidence: gpt-oss 12/12;
-  deepseek ~65% + malformed specs; kimi ~40% + slow; GLM 1/3).
-- Phase 5b cross-family ablation: 300 triples, deepseek+kimi 50/50, written
-  to a **separate** `data/triples_xfamily/` tree.
-- **No human review (Phase 6 skipped).** Phase 7 verifier validation is the
-  only admission filter.
+Each gate (sanity ≥70→40 %, source-audit 0 % drop, Phase-7 ≥50 %) fired
+correctly and prevented wasting hours regenerating broken triples.
 
----
+## The OPEN ISSUE (what's left)
 
-## 3. THE BLOCKER — Fireworks rate limit
+v3 is structurally correct (zero schema_mismatch, audit passes, all unit
+tests pass). The ~10 % ceiling is **not a pipeline bug** — it is:
+1. **Verus uninstallable** in this environment → ~1/3 of every batch auto-fails (documented; raw-only release).
+2. **Generator quality**: `qwen2.5:32b` (used because the 40 GB A100 cannot fit Qwen-72B, and Fireworks Tier-1 rate-limited) frequently emits Dafny/Lean where the trojan and witness do not form a real verifier contradiction. The `255f8177`/`51b44bd4`-style admits show the design works when the model gets it right.
 
-The full 1,500-triple run (`scripts/run_phase5.sh`) was started and **failed
-at 90/1,500**. Diagnosis:
+**To raise admission, the next lever is the generator, not the schema:** a
+stronger model (Fireworks/OpenRouter `gpt-oss-120b` or Qwen-72B on an 80 GB
+GPU), or attack-prompt hardening (Cause C/D/E from the prior plan, not yet
+applied because the user deferred them as "acceptable noise").
 
-| Check | Result |
-| :-- | :-- |
-| Failure code | **946/946 HTTP 429 `RATE_LIMIT_EXCEEDED`** (not auth/outage/5xx) |
-| Single isolated call | Also **429** in 0.13s when the window is saturated |
-| Account/usage API | No endpoint (404); balance only in Fireworks dashboard |
-| 3 parallel calls | 2 × 200, 1 × 429 → capacity is low, not zero |
-| Rate-limit headers | **None** (`x-ratelimit-*`, `Retry-After` absent) |
-| Other models | deepseek/kimi/glm also 429 → **limit is account-wide** |
-
-**Root cause:** the Fireworks API key is on a **very low account-wide
-requests-per-minute tier** (single-digit RPM). A 1,500-job burst at
-concurrency 8 swamped it. Switching model does not help (account-wide);
-waiting does not help (persistent cap, not an outage).
-
-**Options:**
-- **(a)** concurrency 8→1-2 **+** client-side throttle **+** longer backoff,
-  and likely cut the target to ~300-500. Runs in hours, fragile.
-- **(b)** switch model — ruled out (account-wide limit).
-- **(c)** wait — ruled out (persistent cap, not an outage).
-- **(d)** switch backend (OpenRouter / Together / Anthropic) — needs a key
-  the user supplies; gpt-oss structured-output path is Fireworks-specific.
-- **Best:** upgrade the Fireworks plan / use a key with real RPM, then
-  resume **unchanged** at concurrency 8. This is a billing action only the
-  project owner can take.
-
-**Decision required from the project owner before generation can proceed.**
-
----
-
-## 4. How to resume after `git clone`
+## Reproduce on any fresh server
 
 ```bash
 git clone https://github.com/m-zest/TrojanSpec-Bench-v1.0.git
-cd TrojanSpec-Bench-v1.0
-git checkout claude/professional-search-interface-MCp22
-
-python3 -m venv venv && source venv/bin/activate
-pip install -e ".[dev,review]"
-pytest tests/ -q                       # expect 26 passed, 1 skipped
-
-cp .env.example .env
-# Edit .env: set FIREWORKS_API_KEY=<a key with adequate RPM>  (NEVER commit .env)
-
-# Smoke test the backend (10 triples, multi-language):
-python scripts/02_generate_triples.py --sanity --concurrency 8
+cd TrojanSpec-Bench-v1.0 && git checkout claude/professional-search-interface-MCp22
+bash scripts/reproduce.sh        # venv, Ollama, models, verifiers, Lean/Mathlib, restore v1
+bash scripts/run_phaseA3.sh      # sanity-gated full pipeline; tail -f /tmp/phaseA3.log
 ```
+- Backend: **local Ollama, no API key needed** (`.env` only needed for the
+  optional Fireworks fallback).
+- v1 dataset auto-restored from the committed tarball
+  (`tar -xzf data/v1_backup_*.tar.gz`).
+- Orchestrators: `scripts/run_phaseA3.sh` (current, v3, gate 40 %),
+  `scripts/run_phaseA2.sh`, `scripts/run_phaseA.sh` (history).
+- Markers in the log: `SANITY_V3B_ADMISSION`, `PHASE7_DAFNY_LEAN_ADMISSION`,
+  `PHASEA3_STOPPED_SANITY|STOPPED_PHASE7|SUCCESS|DONE`.
 
-Then, once the rate-limit decision is made:
+## Key files
 
-```bash
-# Phase 5a + 5b chained (the runner that failed on the low-RPM key):
-bash scripts/run_phase5.sh            # logs: /tmp/main1500.log, /tmp/xfamily300.log
-#   5a -> data/triples/        (1500, gpt-oss only)
-#   5b -> data/triples_xfamily/ (300, deepseek+kimi 50/50)
+- `src/trojanspec/schemas.py` — `Triple` (+ `preamble`, `triple_format_version`, `schema_mismatch`, `validation_failed`)
+- `src/trojanspec/verifiers/compose.py` — v3 `compose(preamble, contract, witness, lang)`
+- `src/trojanspec/generators/validator.py` — Phase 7; `_target_decl_name` (last decl)
+- `src/trojanspec/crypto/*.py` — 15 anchors; 8 use `honest_preamble`
+- `src/trojanspec/specguard/` — 5 detectors; CLI `scripts/05_specguard.py`
+- `scripts/02_generate_triples.py` — generation; `scripts/04_validate_witnesses.py` — Phase 7
+- `docs/threat_model.md` — model selection, generation methodology, admission filter, Verus deferral
 
-# Phase 7 (sole admission filter) — needs verifiers installed first:
-bash scripts/install_verifiers.sh     # Dafny / Lean / Verus / Z3 (heavy)
-python scripts/04_validate_witnesses.py
-#   validates BOTH data trees; admitted -> reviewed_by="auto-phase7-validator"
-#   failed -> validation_failed=true (kept for transparency)
-
-# Phase 8: SpecGuard CLI (5 detectors) — NOT yet built (next task).
-```
-
-If the low-RPM key must be used, edit
-`scripts/02_generate_triples.py` (`CONCURRENCY = 1`), raise
-`_MAX_RETRIES`/`_BASE_DELAY_SEC` in
-`src/trojanspec/utils/llm_clients.py`, and reduce `--per-cell`.
-
----
-
-## 5. Local-only artifacts (NOT in git, regenerated)
-
-- `.env` — contains the Fireworks key; git-ignored by design, never pushed.
-- `data/triples/` — 90 partial gpt-oss triples from the failed run
-  (git-ignored; regenerated by Phase 5a). Valid but incomplete; discard.
-- `data/triples_xfamily/` — empty (5b never ran).
-- Raw triple JSONs are git-ignored on purpose; per-phase
-  `*_SUMMARY.json` manifests are the committed record (none yet — the run
-  did not reach the summary step).
-
----
-
-## 6. Next steps (in order)
-
-1. **Owner decision** on the Fireworks rate limit (Section 3).
-2. Resume Phase 5a (+5b) generation once unblocked.
-3. `scripts/install_verifiers.sh`, then Phase 7 validation.
-4. **Build Phase 8 — SpecGuard CLI (5 detectors)** — not started.
-5. Report admission rates per language/attack/model; total cost.
-
-Phases 9-17 (eval harness, ablations, Mathlib case study, web demo, HF
-release, papers) remain unstarted per the original build spec.
+## NOT started (per scope)
+Phase 9 (evaluation), 10 (ablations), 11 (Mathlib case study), 12 (web demo),
+13 (HF release), 15 (papers). Phase 6 human review intentionally bypassed.
