@@ -112,6 +112,10 @@ class Triple(BaseModel):
     # check. Such triples are kept in the raw dataset (transparency) but are
     # excluded from the admitted set.
     validation_failed: bool = False
+    # Set True (v2) when trojan_spec and original_spec do not share the same
+    # declaration signature, so the dual-property check is incoherent. Such
+    # triples are skipped (not verified) and never admitted.
+    schema_mismatch: bool = False
 
     # Provenance.
     source_problem_hash: str
@@ -135,6 +139,7 @@ class Triple(BaseModel):
         confirms both halves of the trojan contradiction."""
         return (
             self.review_passed
+            and not self.schema_mismatch
             and self.verifier_accepts_witness_under_trojan
             and self.verifier_rejects_witness_under_original
         )

@@ -2,8 +2,12 @@
 
 A triple is a genuine trojan iff:
 
-  1. ``trojan_spec + trojan_witness``     -> verifier ACCEPTS, and
-  2. ``original_spec + trojan_witness``   -> verifier REJECTS.
+  1. ``compose(trojan_spec, witness)``   -> verifier ACCEPTS, and
+  2. ``compose(original_spec, witness)`` -> verifier REJECTS,
+
+and (v2) ``trojan_spec`` and ``original_spec`` share the same declaration
+signature - otherwise the dual-property check is incoherent and the triple is
+marked ``schema_mismatch`` and skipped.
 
 This module is the single source of truth for that check; both the CLI and
 ``scripts/04_validate_witnesses.py`` call :func:`validate_triple`.
@@ -11,13 +15,30 @@ This module is the single source of truth for that check; both the CLI and
 
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 
 from trojanspec.schemas import Language, Triple
 from trojanspec.utils.logging import get_logger
 from trojanspec.verifiers import VERIFIERS
+from trojanspec.verifiers.compose import compose
 
 log = get_logger("validator")
+
+_DECL = {
+    Language.DAFNY: re.compile(
+        r"\b(?:method|function|predicate|lemma|ghost\s+function)\s+([A-Za-z_]\w*)"
+    ),
+    Language.VERUS: re.compile(r"\b(?:fn|spec\s+fn|proof\s+fn)\s+([A-Za-z_]\w*)"),
+    Language.LEAN: re.compile(
+        r"\b(?:theorem|lemma|def|example|abbrev)\s+([A-Za-z_][\w'.]*)"
+    ),
+}
+
+
+def _decl_name(spec: str, language: Language) -> str | None:
+    m = _DECL[language].search(spec or "")
+    return m.group(1) if m else None
 
 
 def _join(spec: str, impl: str) -> str:
@@ -25,58 +46,33 @@ def _join(spec: str, impl: str) -> str:
     return f"{spec.rstrip()}\n\n{impl.lstrip()}\n"
 
 
-def _first_brace_block(text: str) -> str | None:
-    """Return the first balanced ``{...}`` block (inclusive), or None."""
-    i = text.find("{")
-    if i == -1:
-        return None
-    depth = 0
-    for j in range(i, len(text)):
-        c = text[j]
-        if c == "{":
-            depth += 1
-        elif c == "}":
-            depth -= 1
-            if depth == 0:
-                return text[i : j + 1]
-    return None
-
-
-def compose(contract: str, witness: str, language: Language) -> str:
-    """v2 composition: the witness BODY under the given CONTRACT.
-
-    The contract supplies the signature + pre/post (any stray body in the
-    contract is dropped); the witness supplies the implementation. The result
-    is a single well-formed program - no duplicate declarations.
-    """
-    contract = contract.strip()
-    witness = witness.strip()
-
-    if language is Language.LEAN:
-        # statement = contract up to (not incl) its first ':='; proof = the
-        # witness's ':= ...' tail.
-        stmt = contract.split(":=", 1)[0].rstrip()
-        if ":=" in witness:
-            proof = ":=" + witness.split(":=", 1)[1]
-            return f"{stmt} {proof.strip()}\n"
-        # No proof in the witness -> leave it to fail honestly.
-        return f"{stmt}\n{witness}\n"
-
-    # Dafny / Verus: header = contract before its first body block; body =
-    # the witness's first balanced { ... } block.
-    cbrace = contract.find("{")
-    header = (contract[:cbrace] if cbrace != -1 else contract).rstrip()
-    body = _first_brace_block(witness)
-    if body is None:
-        return f"{header}\n{witness}\n"
-    return f"{header}\n{body}\n"
-
-
 def validate_triple(triple: Triple, timeout_sec: int = 60) -> Triple:
     """Run both verifier checks and stamp the result onto ``triple``."""
     verify = VERIFIERS.get(triple.language)
     if verify is None:  # pragma: no cover - exhaustive over Language
         raise ValueError(f"No verifier registered for {triple.language}")
+
+    triple.validation_timestamp = datetime.now(timezone.utc)
+
+    # FIX B: the dual-property check is only coherent if trojan_spec and
+    # original_spec declare the same thing (same name). Otherwise composing
+    # the witness onto original_spec produces incoherent code.
+    if triple.triple_format_version >= 2:
+        t_name = _decl_name(triple.trojan_spec, triple.language)
+        o_name = _decl_name(triple.original_spec, triple.language)
+        if t_name is None or o_name is None or t_name != o_name:
+            triple.schema_mismatch = True
+            triple.validation_failed = True
+            triple.review_passed = False
+            log.info(
+                "triple=%s lang=%s SCHEMA_MISMATCH trojan_decl=%s original_decl=%s"
+                " -> skipped",
+                triple.triple_id[:8],
+                triple.language.value,
+                t_name,
+                o_name,
+            )
+            return triple
 
     if triple.triple_format_version >= 2:
         trojan_src = compose(triple.trojan_spec, triple.trojan_witness, triple.language)
@@ -93,8 +89,6 @@ def validate_triple(triple: Triple, timeout_sec: int = 60) -> Triple:
     r_original = verify(original_src, timeout_sec=timeout_sec)
     triple.verifier_rejects_witness_under_original = not r_original.accepts
 
-    triple.validation_timestamp = datetime.now(timezone.utc)
-
     log.info(
         "triple=%s lang=%s accepts_trojan=%s rejects_original=%s -> admitted=%s",
         triple.triple_id[:8],
@@ -106,4 +100,4 @@ def validate_triple(triple: Triple, timeout_sec: int = 60) -> Triple:
     return triple
 
 
-__all__ = ["validate_triple", "Language"]
+__all__ = ["validate_triple", "compose", "Language"]
