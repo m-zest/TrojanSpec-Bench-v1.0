@@ -61,4 +61,5 @@ async def elicit_triple(
         elicitor_prompt_template=attack_pattern.value,
         elicitor_response_full=result.elicitor_response_full,
         source_problem_hash=hashlib.sha256(problem.nl.encode("utf-8")).hexdigest(),
+        triple_format_version=2,
     )

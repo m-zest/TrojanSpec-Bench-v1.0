@@ -116,6 +116,16 @@ class Triple(BaseModel):
     # Provenance.
     source_problem_hash: str
 
+    # Triple-contract version. v1 (legacy / absent): trojan_spec and
+    # trojan_witness are each complete standalone programs (the concatenation
+    # of which duplicate-declares symbols - the v1 admission failure). v2:
+    # trojan_spec / original_spec are signature + pre/post contract ONLY
+    # (no body), trojan_witness is signature + body; the validator composes
+    # the witness body under each contract. Default is 1 so pre-existing
+    # data/triples_v1 JSON (which has no such field) loads as legacy v1; the
+    # elicitor stamps newly generated triples with 2.
+    triple_format_version: int = 1
+
     created_at: datetime = Field(default_factory=_utcnow)
     schema_version: Literal["1.0.0"] = "1.0.0"
 

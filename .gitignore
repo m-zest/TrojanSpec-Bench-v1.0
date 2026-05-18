@@ -52,6 +52,11 @@ htmlcov/
 data/raw/
 data/triples/**/*.json
 data/triples_xfamily/**/*.json
+data/triples_v1/
+data/triples_xfamily_v1/
+data/triples_v1_old_*/
+data/triples_xfamily_v1_old_*/
+data/*.tar.gz
 data/witnesses/
 data/evaluation_results.jsonl
 data/ablations/
