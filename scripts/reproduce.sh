@@ -1,56 +1,98 @@
 #!/usr/bin/env bash
-# Reproduce the full TrojanSpec-Bench pipeline on a fresh server from a clone.
+# Reproduce TrojanSpec-Bench end-to-end on a fresh machine.
 #
-#   git clone https://github.com/m-zest/TrojanSpec-Bench-v1.0.git
-#   cd TrojanSpec-Bench-v1.0
+# Quickstart:
+#   git clone <repo> && cd TrojanSpec-Bench-v1.0
 #   git checkout claude/professional-search-interface-MCp22
-#   bash scripts/reproduce.sh            # does everything below, step by step
+#   cp .env.example .env && $EDITOR .env       # set AWS_* for Bedrock
+#   bash scripts/reproduce.sh                  # idempotent; resumable
 #
-# Steps are idempotent and each prints a banner. Read STATUS.md first.
+# Steps are banner-printed and idempotent. Read docs/REPRODUCIBILITY.md
+# first (env vars, costs, expected runtimes, troubleshooting).
 set -uo pipefail
 cd "$(dirname "$0")/.."
-ROOT=$(pwd)
+PY=./venv/bin/python
 say(){ echo; echo "######## $* ########"; }
 
-say "1. Python venv + package"
-python3 -m venv venv
+say "0. Python venv + package (idempotent)"
+[ -d venv ] || python3 -m venv venv
 ./venv/bin/pip -q install --upgrade pip wheel
-./venv/bin/pip -q install -e ".[dev,review]"
-./venv/bin/python -m pytest tests/ -q || { echo "tests failed"; exit 1; }
+./venv/bin/pip -q install -e ".[dev]" matplotlib
+$PY -m pytest -q tests/ || { echo "tests failed; aborting"; exit 1; }
+./venv/bin/ruff check src/ tests/ scripts/ || echo "(ruff warnings - non-fatal)"
 
-say "2. .env (Fireworks optional; local Ollama is the default backend)"
+say "1. .env / Bedrock credentials"
 [ -f .env ] || cp .env.example .env
-echo "Edit .env if using Fireworks (FIREWORKS_API_KEY). Local Ollama needs no key."
+if grep -qE '^AWS_ACCESS_KEY_ID=.+' .env; then
+  echo "(.env has AWS_ACCESS_KEY_ID populated)"
+else
+  echo "WARNING: AWS_ACCESS_KEY_ID empty - Bedrock calls will 401."
+  echo "Edit .env: AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / AWS_DEFAULT_REGION."
+fi
 
-say "3. Local Ollama backend (primary)"
-command -v ollama >/dev/null || curl -fsSL https://ollama.com/install.sh | sh
-(pgrep -f 'ollama serve' >/dev/null) || (nohup ollama serve >/tmp/ollama.log 2>&1 & sleep 5)
-ollama pull qwen2.5:32b
-ollama pull qwen2.5-coder:32b
-ollama pull deepseek-coder-v2:16b
+say "2. Restore preserved dataset tarballs (v1 + v4 admitted triples)"
+if ls data/v1_backup_*.tar.gz >/dev/null 2>&1; then
+  if [ -d data/triples_v1 ]; then echo "(v1 already restored)"
+  else tar -xzf data/v1_backup_*.tar.gz; fi
+else echo "(no v1 tarball)"; fi
+if ls data/v4_backup_*.tar.gz >/dev/null 2>&1; then
+  if [ -d data/triples ] && [ "$(find data/triples -name '*.json' | wc -l)" -ge 1500 ]; then
+    echo "(v4 already restored: $(find data/triples -name '*.json' | wc -l) triples)"
+  else
+    tar -xzf data/v4_backup_*.tar.gz
+    echo "v4 restored: triples=$(find data/triples -name '*.json' | wc -l)"
+    echo "v4 restored: triples_xfamily=$(find data/triples_xfamily -name '*.json' | wc -l)"
+  fi
+else echo "(no v4 tarball)"; fi
 
-say "4. Verifiers (Dafny + Lean + Z3; Verus optional/often fails to build)"
-bash scripts/install_verifiers.sh || echo "WARN some verifiers missing (see STATUS.md)"
+say "3. Verifiers (Dafny 4.11, Lean 4.29 + Mathlib, Verus, Z3)"
+bash scripts/install_verifiers.sh || echo "WARN some verifiers may have failed; see docs/REPRODUCIBILITY.md"
 export PATH="$PATH:$HOME/.dotnet/tools:$HOME/.elan/bin"
 
-say "5. Lean + Mathlib template (one-time, ~20-40 min: clone+cache+build)"
+say "4. Lean + Mathlib template (one-time, ~20-40 min)"
 TPL="$HOME/lean-project-template"
+export TROJANSPEC_LEAN_TEMPLATE="$TPL"
 if [ ! -f "$TPL/.mathlib_ready" ]; then
   ( cd "$HOME" && rm -rf lean-project-template && lake new lean-project-template math ) \
    && ( cd "$TPL" && lake exe cache get ) \
    && ( cd "$TPL" && lake build ) && touch "$TPL/.mathlib_ready"
+else
+  echo "(Mathlib template ready)"
 fi
-export TROJANSPEC_LEAN_TEMPLATE="$TPL"
 
-say "6. Restore the preserved v1 dataset (negative-result / HF release)"
-[ -f data/v1_backup_*.tar.gz ] && tar -xzf data/v1_backup_*.tar.gz 2>/dev/null || true
+say "5. Phase 7 admission verification (idempotent, skip-already-validated)"
+if [ -f data/phase7_admission_report.json ]; then
+  echo "(Phase 7 report present: $($PY -c 'import json;print(json.load(open(\"data/phase7_admission_report.json\"))[\"admission_pct\"])')% admission)"
+else
+  $PY scripts/04_validate_witnesses.py \
+    --data-dir data/triples data/triples_xfamily \
+    --concurrency 4 --skip-already-validated \
+    --timeout 120 --report-json data/phase7_admission_report.json
+fi
 
-say "7. Run the pipeline (sanity-gated). See scripts/run_phaseA3.sh"
-echo "   bash scripts/run_phaseA3.sh   # sanity>=40% -> regen 1500+300 -> Phase7 -> report"
-echo "   tail -f /tmp/phaseA3.log"
-echo
-echo "Manual equivalents:"
-echo "   ./venv/bin/python scripts/02_generate_triples.py --sanity --out-dir data/triples_sanity --concurrency 4"
-echo "   ./venv/bin/python scripts/04_validate_witnesses.py --data-dir data/triples_sanity --report-json data/sanity_report.json"
-echo "   ./venv/bin/python scripts/05_specguard.py <triple.json> --no-monitor"
-say "DONE - read STATUS.md for current numbers and the open issue"
+say "6. Phase 9 SpecGuard evaluation (Bedrock; resumable JSONL)"
+if [ -f data/phase9_results_v2.jsonl ]; then
+  echo "(Phase 9 v2 jsonl present: $(wc -l < data/phase9_results_v2.jsonl) records)"
+  echo "(v2 already includes post-fix axiom_audit verdicts; no re-run needed)"
+else
+  $PY scripts/06_phase9_eval.py --concurrency 4 \
+    --results-jsonl data/phase9_results.jsonl
+  $PY scripts/_phase9_axiom_replay.py
+  $PY scripts/_phase9_report.py \
+    --jsonl data/phase9_results_v2.jsonl \
+    --metrics-out data/phase9_metrics_v2.json \
+    --report-out docs/phase9_detector_evaluation.md
+fi
+
+say "7. Phase 10 post-hoc ablations (zero LLM cost; safe to re-run)"
+$PY scripts/10a_elicitor_sweep.py
+$PY scripts/10d_ensemble_grid.py
+$PY scripts/10e_cross_language.py
+
+say "8. Phase 10 LLM-heavy + Phase 11 Mathlib (Bedrock-billed, ~1-2h)"
+echo "Not auto-run. Trigger explicitly:"
+echo "  bash scripts/run_phase10_phase11.sh   # detached; logs /tmp/phase10_11.log"
+echo "  tail -f /tmp/phase10_11.log           # markers: PHASE10_11_SUCCESS/DONE"
+
+say "DONE - read docs/REPRODUCIBILITY.md for env vars, costs, troubleshooting"
+echo "Headline numbers: docs/phase5_to_phase8_complete.md, docs/phase9_detector_evaluation.md"
