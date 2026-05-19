@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-import os
+import shutil
 import subprocess
 import tempfile
 import time
+from pathlib import Path
 
 
 def verify_verus(spec_and_impl: str, timeout_sec: int = 60):
@@ -20,19 +21,23 @@ def verify_verus(spec_and_impl: str, timeout_sec: int = 60):
     if "fn main(" not in spec_and_impl:
         spec_and_impl = spec_and_impl.rstrip() + "\n\nfn main() {}\n"
 
-    with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".rs", delete=False, encoding="utf-8"
-    ) as f:
-        f.write(spec_and_impl)
-        tmpfile = f.name
+    # Verus emits the compiled binary (and any scratch artefacts) into the
+    # *current working directory*. Running 1500-1800 triples from the repo
+    # root left ~1500 stray `tmp*` files/dirs there. Run inside a dedicated
+    # tempdir and rmtree it in `finally` so every invocation is self-cleaning
+    # regardless of pass / fail / timeout.
+    workdir = Path(tempfile.mkdtemp(prefix="trojanspec_verus_"))
     try:
+        srcfile = workdir / "triple.rs"
+        srcfile.write_text(spec_and_impl, encoding="utf-8")
         start = time.time()
         try:
             result = subprocess.run(
-                ["verus", tmpfile],
+                ["verus", str(srcfile)],
                 capture_output=True,
                 text=True,
                 timeout=timeout_sec,
+                cwd=workdir,
             )
             elapsed = int((time.time() - start) * 1000)
             # Verus prints "verification results:: N verified, M errors".
@@ -56,4 +61,4 @@ def verify_verus(spec_and_impl: str, timeout_sec: int = 60):
                 timeout=True,
             )
     finally:
-        os.unlink(tmpfile)
+        shutil.rmtree(workdir, ignore_errors=True)

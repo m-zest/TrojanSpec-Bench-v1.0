@@ -78,3 +78,11 @@ Thumbs.db
 .vscode/
 *.swp
 *~
+
+# Verifier scratch artefacts. Verus historically emitted both compiled ELF
+# binaries (files, ~4.3 MB each) AND scratch dirs into cwd; Phase 7's
+# parallel run left ~1500 dirs and 334 binaries (totalling ~1.4 GB tracked)
+# in the repo root. verus.py now runs each call inside a per-invocation
+# tmpdir that is rmtree'd in `finally`; this rule covers both files and dirs
+# so any other tool that drops `tmp*` scratch never reaches git.
+tmp*
