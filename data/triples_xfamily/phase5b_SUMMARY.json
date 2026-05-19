@@ -1,0 +1,24 @@
+{
+  "phase": "phase5b",
+  "expected": 300,
+  "generated": 298,
+  "yield_pct": 99.3,
+  "per_language": {
+    "dafny": 100,
+    "lean": 100,
+    "verus": 98
+  },
+  "per_attack": {
+    "predicate_swap": 73,
+    "vacuity": 75,
+    "implementation_leak": 75,
+    "domain_restriction": 75
+  },
+  "per_model": {
+    "us.anthropic.claude-haiku-4-5-20251001-v1:0": 148,
+    "us.meta.llama3-3-70b-instruct-v1:0": 150
+  },
+  "approx_total_tokens": 636338,
+  "approx_cost_usd": 0.5727,
+  "note": "Raw triples are git-ignored (regenerated locally); this manifest is the committed record. Cost is a rough blended estimate."
+}
