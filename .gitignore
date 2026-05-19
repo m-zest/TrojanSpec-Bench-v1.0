@@ -57,6 +57,10 @@ data/triples_xfamily_v1/
 data/triples_v1_old_*/
 data/triples_xfamily_v1_old_*/
 data/*.tar.gz
+# But preserve the per-version dataset backup tarballs - they are the
+# canonical "clone-and-resume" handoff for v1 and v4 admitted triples
+# (data/triples/ and data/triples_xfamily/ themselves stay ignored).
+!data/v?_backup_*.tar.gz
 data/witnesses/
 data/evaluation_results.jsonl
 data/ablations/
