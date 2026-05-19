@@ -1,6 +1,8 @@
 """Diagnose the 3 failed implementation_leak sanity triples: exact dual-property
 verdict + verifier stderr for the trojan and original compositions."""
-import glob, json
+import glob
+import json
+
 from trojanspec.schemas import Language
 from trojanspec.verifiers import VERIFIERS
 from trojanspec.verifiers.compose import compose
