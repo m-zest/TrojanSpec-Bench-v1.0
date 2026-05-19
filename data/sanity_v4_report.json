@@ -26,14 +26,14 @@
       "pct": 66.7
     },
     "domain_restriction": {
-      "admitted": 2,
+      "admitted": 1,
       "total": 2,
-      "pct": 100.0
+      "pct": 50.0
     },
     "implementation_leak": {
-      "admitted": 0,
+      "admitted": 1,
       "total": 3,
-      "pct": 0.0
+      "pct": 33.3
     },
     "vacuity": {
       "admitted": 1,
