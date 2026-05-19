@@ -1,90 +1,114 @@
-# TrojanSpec-Bench — Status & Handoff (server-deletion snapshot)
+# TrojanSpec-Bench — Status & Handoff
 
-**Updated:** 2026-05-18
-**Branch:** `claude/professional-search-interface-MCp22` (HEAD pushed; remote synced)
-**Reproduce:** `bash scripts/reproduce.sh` after cloning (read this file first).
+**Updated:** 2026-05-19
+**Branch:** `claude/professional-search-interface-MCp22` (HEAD pushed)
+**Reproduce:** `bash scripts/reproduce.sh` (idempotent; reads
+[`docs/REPRODUCIBILITY.md`](docs/REPRODUCIBILITY.md) for env vars).
 
 ---
 
 ## TL;DR
 
-The library, generators, 3 verifier wrappers, 13/15 crypto anchors, SpecGuard
-(5 detectors), and the full Fireworks→Ollama generation pipeline are built,
-tested (`pytest` 55 passed / 1 skipped, ruff clean) and committed/pushed.
+The library, generators, 3 verifier wrappers, 13 crypto-primitive anchors,
+SpecGuard (5 detectors), the Bedrock generation pipeline (Phase 5a/5b), the
+parallel verifier (Phase 7), the SpecGuard evaluation (Phase 9), the seven
+ablations (Phase 10a–g), and the Mathlib case study (Phase 11) are all built,
+tested, and committed/pushed. `pytest` 58 passed / 3 skipped, `ruff` clean.
 
-**Open problem:** end-to-end *admission* (a triple where a real verifier
-accepts trojan_spec+witness AND rejects original_spec+witness) is stuck at
-**~10%** on a 10-triple sanity. Three triple-contract iterations each fixed a
-real structural bug surfaced by automated validation; the residual ceiling is
-now **generator quality** (local Qwen-2.5-32B is not strong enough at formal
-Dafny/Lean) plus **Verus uninstallable** here. No full 1500/300 regen has
-been admitted yet. This iteration history *is* the paper's methodology story.
+The benchmark is shippable from a fresh clone via two preserved tarballs
+(`data/v1_backup_*.tar.gz`, `data/v4_backup_*.tar.gz`) and `reproduce.sh`.
 
----
+## Headline numbers
 
-## What is DONE (committed & pushed)
-
-| Area | State |
+| Phase | Headline |
 | :-- | :-- |
-| Fireworks backend (4 families) then pivot to **local Ollama** (Qwen-2.5-32B primary; Qwen-Coder + DeepSeek-Coder ablation) | done |
-| 13 crypto-primitive families, 15 anchors, 5/5/5 Dafny/Lean/Verus, no fabricated finding numbers | done |
-| Generation script: weighted families, concurrency, retry/backoff, resume top-up, `--sanity`, `--xfamily` | done |
-| Phase 6 Streamlit review UI | done (now bypassed — Phase 7 is sole filter) |
-| Phase 7 auto-validator (sole admission filter, `reviewed_by="auto-phase7-validator"`, `validation_failed`/`schema_mismatch` flags) | done |
-| Phase 8 **SpecGuard**: 5 detectors (vacuity, mutation-coverage, ghost-leakage, axiom-audit, monitor-consensus) + CLI `scripts/05_specguard.py` + 22 unit tests | done |
-| Verifiers installed here: **Z3 4.8.12, Dafny 4.11, Lean 4.29 (+Mathlib template)**. **Verus failed to build** | partial |
-| v1 dataset preserved: `data/triples_v1` (1484) + `data/triples_xfamily_v1` (212) + **committed tarball** `data/v1_backup_*.tar.gz` | done |
+| 5a / 5b | 1500 admitted (Sonnet 4.6) + 298 ablation (Haiku 4.5 + Llama-3.3 70B) |
+| 7 admission | **57.0%** overall (1024 / 1798); **Dafny+Lean 61.3%** (gate ≥50% cleared); Lean 69.5%, Dafny 53.2%, Verus 48.2% |
+| 9 SpecGuard | `monitor_consensus` **F1 0.871** (R 1.000, P 0.771, FPR 0.297); `axiom_audit` **F1 0.492** post multi-language + preamble fix (R 1.000 on `implementation_leak`); combined-risk AUC 0.793, paired Δrisk +0.440 |
+| 10 ablations | a (elicitor sweep), b (temperature), c (monitor count 1/3/5), d (ensemble grid → `monitor_consensus` alone is F1-optimal), e (cross-language transfer; threshold transfers perfectly), f (SSC baseline), g (adaptive-attack stress) |
+| 11 Mathlib | 100 honest Lean theorems through `axiom_audit` + `monitor_consensus` (real-formal-mathematics FPR calibration) |
 
-## The three triple-contract iterations (the methodology story)
+## Methodology story (the iteration history that became the paper)
 
-| Ver | Contract | Bug it exposed (via automated validation) | Admission |
+### v1 → v3 contract iterations (Phase 5-redux)
+
+| Ver | Contract | Bug it exposed via automated validation | Admission |
 | :-- | :-- | :-- | :-- |
-| **v1** | trojan_spec & trojan_witness each a full standalone program | concatenation duplicate-declares the symbol → never compiles | 0.13 % (1/756) |
-| **v2** | single signature; spec = header only, witness = body | `compose()` brace-finding broke on set literals / `{:axiom}` / `verus!`; and Lean original_spec was a *different declaration* than the trojan | 10 % (1/10) |
-| **v3** | shared **preamble** (helpers) + single target spec/witness | preamble fixed all `schema_mismatch`; **0/20 source-audit drops**. Residual failures are now genuine: Verus absent (3/10) and Qwen-generated Dafny/Lean where trojan+witness do not form a verifier-confirmed contradiction (`accepts_trojan=True, rejects_original=False`, or witness fails to verify) | 10 % (1/10) |
+| **v1** | trojan_spec + trojan_witness each a full standalone program | concatenation duplicate-declares the symbol → never compiles | 0.13 % (1/756) |
+| **v2** | single signature; spec = header only, witness = body | `compose()` brace-finding broke on set literals / `{:axiom}` / `verus!`; Lean `original_spec` was a *different declaration* than the trojan | 10 % (1/10) |
+| **v3** | shared **preamble** (helpers) + single target spec/witness | preamble fixed all `schema_mismatch`; **0/20 source-audit drops** | 10 % (1/10) |
 
-Each gate (sanity ≥70→40 %, source-audit 0 % drop, Phase-7 ≥50 %) fired
-correctly and prevented wasting hours regenerating broken triples.
+### v4 — the four blockers that lifted admission to 57%
 
-## The OPEN ISSUE (what's left)
+Each gate exposed one structural bug; fixing each lifted real admission:
 
-v3 is structurally correct (zero schema_mismatch, audit passes, all unit
-tests pass). The ~10 % ceiling is **not a pipeline bug** — it is:
-1. **Verus uninstallable** in this environment → ~1/3 of every batch auto-fails (documented; raw-only release).
-2. **Generator quality**: `qwen2.5:32b` (used because the 40 GB A100 cannot fit Qwen-72B, and Fireworks Tier-1 rate-limited) frequently emits Dafny/Lean where the trojan and witness do not form a real verifier contradiction. The `255f8177`/`51b44bd4`-style admits show the design works when the model gets it right.
+1. **FIX 5 (Lean verifier real type-checking)** — `verify_lean` ran `lake build`, which builds the project's `defaultTargets` and returns 0 *without* type-checking the injected `Main.lean`. Every Lean triple spuriously "verified" and original was never rejected. Switched to `lake env lean Main.lean`. Commit `284cec3`.
+2. **Verifier-proven Lean few-shot** — rewrote all 8 Lean worked examples (A+B × 4 attacks) onto four shapes confirmed `acc_troj=True rej_orig=True` through the *fixed* `verify_lean`. Commit `284cec3`.
+3. **`implementation_leak` Dafny few-shot was structurally wrong** — `function {:axiom} P(...): bool` + `ensures P(...)` does *not* verify (Dafny still tries to prove the ensures; `{:axiom}` on a bodiless function doesn't axiomatize claims about its value). Replaced with `predicate {:axiom}` + `lemma {:axiom}` that the witness invokes. Commit `e6b6111`.
+4. **Deterministic Lean `implementation_leak` repair in the elicitor** — Sonnet reliably named a leak surface in `trojan_spec`/`witness` but omitted its declaration from `preamble`, so the trojan never type-checked. Added `_repair_lean_impl_leak` in `src/trojanspec/generators/elicitor.py`: synthesises a nullary opaque `Prop` + inhabiting axiom in the preamble from the original theorem header (no type inference; only a depth-0 goal-colon split). Removes model-compliance dependence. Commit `3a13228`.
 
-**To raise admission, the next lever is the generator, not the schema:** a
-stronger model (Fireworks/OpenRouter `gpt-oss-120b` or Qwen-72B on an 80 GB
-GPU), or attack-prompt hardening (Cause C/D/E from the prior plan, not yet
-applied because the user deferred them as "acceptable noise").
+Sanity progression: **10% → 50% → 50% → 60%** as each blocker closed. Full
+1500+300 regen + Phase 7 then landed at **57.0%** overall (`bdf082f` Phase 7
+report, `d9d40ea` final progression report).
 
-## Reproduce on any fresh server
+### Phase 9 SpecGuard evaluation
 
-```bash
-git clone https://github.com/m-zest/TrojanSpec-Bench-v1.0.git
-cd TrojanSpec-Bench-v1.0 && git checkout claude/professional-search-interface-MCp22
-bash scripts/reproduce.sh        # venv, Ollama, models, verifiers, Lean/Mathlib, restore v1
-bash scripts/run_phaseA3.sh      # sanity-gated full pipeline; tail -f /tmp/phaseA3.log
-```
-- Backend: **local Ollama, no API key needed** (`.env` only needed for the
-  optional Fireworks fallback).
-- v1 dataset auto-restored from the committed tarball
-  (`tar -xzf data/v1_backup_*.tar.gz`).
-- Orchestrators: `scripts/run_phaseA3.sh` (current, v3, gate 40 %),
-  `scripts/run_phaseA2.sh`, `scripts/run_phaseA.sh` (history).
-- Markers in the log: `SANITY_V3B_ADMISSION`, `PHASE7_DAFNY_LEAN_ADMISSION`,
-  `PHASEA3_STOPPED_SANITY|STOPPED_PHASE7|SUCCESS|DONE`.
+5 detectors × 1024 admitted trojan triples + 1024 honest controls. Initial
+run reported `axiom_audit` at 0/1024 — diagnosed as compounding bugs
+(Lean-only language scope; `trojan_spec`-only inspection scope misses the
+preamble-located v4 deterministic leak repair). Rewrote the detector with
+per-language patterns (Lean `axiom`/`opaque`, Dafny `{:axiom}`/`{:extern}`,
+Verus `external_body`/uninterpreted `spec fn`) over `preamble + trojan_spec`.
+Replay over the existing jsonl (no LLM re-cost): 0 → 377 TP (100% recall on
+`implementation_leak`). Commit `af67337`.
+
+Honest-control caveat: the seed `original_spec` is often loose vs the NL
+(e.g. NL "sum 0..n" paired with a spec that only `ensures r >= n`), so the
+unpaired FPR on `monitor_consensus` (0.297) is conservative-high. The
+**paired Δ-rate** (70.3%) is the discriminative measure that controls for
+seed quality.
+
+### Phase 10 + Phase 11
+
+Generated by `scripts/run_phase10_phase11.sh`. The orchestrator commits and
+pushes after each stage; the final consolidated reports
+(`docs/phase10_ablations.md`, `docs/phase11_mathlib_case_study.md`) are
+emitted by `scripts/_phase10_report.py` / `_phase11_report.py`. Notable
+findings already confirmed:
+
+- **10a:** Haiku-generated trojans are markedly easier to detect (`ghost_leakage` R 0.593 vs 0.117 on Sonnet, `axiom_audit` R 0.508 vs 0.353). Llama tracks Sonnet.
+- **10b:** Sonnet monitor verdict is 100% temperature-stable on admitted trojans (saturation: every admitted weakening is judged UNFAITHFUL at every temperature).
+- **10d:** `monitor_consensus` alone is the F1-optimal subset (0.871); adding `axiom_audit` *hurts* F1 to 0.829 because the shared preamble makes it FP on the honest control.
+- **10e:** Combined-risk threshold transfers perfectly across languages (0.750); per-language F1 varies (Dafny 0.995, Lean 0.851, Verus 0.677) tracking honest-control seed looseness.
+- **Phase 9 cross-contamination null result:** Llama-monitor `miss_rate` on Llama-generated trojans = 0.000; no detectable in-family judging bias.
+
+## What's preserved for clone-and-resume
+
+| Artefact | Location | Restored to |
+| :-- | :-- | :-- |
+| v1 dataset (1484 + 212 negative-result corpus) | `data/v1_backup_*.tar.gz` | `data/triples_v1/`, `data/triples_xfamily_v1/` |
+| v4 dataset (1500 + 298 admitted triples) | `data/v4_backup_*.tar.gz` | `data/triples/`, `data/triples_xfamily/` |
+| Phase 7 report | `data/phase7_admission_report.json` | (committed) |
+| Phase 9 results + metrics | `data/phase9_results_v2.jsonl`, `data/phase9_metrics_v2.json` | (committed) |
+| Phase 9 figures | `figures/phase9_*.png` | (committed via `!figures/phase9_*.png` exception) |
+| Phase 10 + 11 data + figures | `data/phase10_*`, `data/phase11_*`, `figures/phase10_*.png` | (committed; `!figures/phase10_*.png` exception in `.gitignore`) |
+| Lean+Mathlib template | `$HOME/lean-project-template` | rebuilt by `reproduce.sh` step 4 (one-time ~20-40 min) |
+
+## What is NOT in this repo
+
+- Bedrock credentials (must be put in `.env` by the user)
+- The Lean+Mathlib snapshot itself (rebuilt locally by `reproduce.sh`)
+- The 334 stray Verus binaries that briefly leaked into commit `bdf082f` — untracked in `744ddad`, `tmp*` added to `.gitignore`, and `verus.py` now uses a per-call `tempfile.mkdtemp` cleaned in `finally` so the leak cannot recur. History still contains the blobs in `bdf082f` (history rewrite is a separate, destructive call).
 
 ## Key files
 
-- `src/trojanspec/schemas.py` — `Triple` (+ `preamble`, `triple_format_version`, `schema_mismatch`, `validation_failed`)
-- `src/trojanspec/verifiers/compose.py` — v3 `compose(preamble, contract, witness, lang)`
-- `src/trojanspec/generators/validator.py` — Phase 7; `_target_decl_name` (last decl)
-- `src/trojanspec/crypto/*.py` — 15 anchors; 8 use `honest_preamble`
-- `src/trojanspec/specguard/` — 5 detectors; CLI `scripts/05_specguard.py`
-- `scripts/02_generate_triples.py` — generation; `scripts/04_validate_witnesses.py` — Phase 7
-- `docs/threat_model.md` — model selection, generation methodology, admission filter, Verus deferral
-
-## NOT started (per scope)
-Phase 9 (evaluation), 10 (ablations), 11 (Mathlib case study), 12 (web demo),
-13 (HF release), 15 (papers). Phase 6 human review intentionally bypassed.
+- `src/trojanspec/schemas.py` — `Triple` (`preamble`, `validation_failed`, `schema_mismatch`, `is_admitted`)
+- `src/trojanspec/verifiers/{dafny,lean,verus}.py` — verifier wrappers (FIX 5, main-injection, tmpdir cleanup)
+- `src/trojanspec/verifiers/compose.py` — `compose(preamble, contract, witness, lang)`
+- `src/trojanspec/generators/elicitor.py` — `_repair_lean_impl_leak` (deterministic leak surface in preamble)
+- `src/trojanspec/generators/validator.py` — Phase 7 verifier driver; `_target_decl_name`
+- `src/trojanspec/specguard/` — 5 detectors; `axiom_audit.py` is the multi-language post-fix version
+- `scripts/02_generate_triples.py` — generation; `04_validate_witnesses.py` — parallel Phase 7 with `--skip-already-validated`
+- `scripts/06_phase9_eval.py` + `_phase9_axiom_replay.py` + `_phase9_report.py` — Phase 9 pipeline
+- `scripts/10[a-g]_*.py`, `scripts/11_mathlib_case_study.py` — Phase 10 & 11
+- `scripts/run_phase*.sh` — orchestrators with per-step `gitci`+push

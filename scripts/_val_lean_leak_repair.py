@@ -24,7 +24,9 @@ for name, pre, orig in CASES:
     decl = _target_decl_name(orig, Language.LEAN) or ""
     rep = _repair_lean_impl_leak(pre, orig, decl)
     if rep is None:
-        print(f"{name}: repair returned None (FAIL)"); ok_all = False; continue
+        print(f"{name}: repair returned None (FAIL)")
+        ok_all = False
+        continue
     npre, tspec, twit = rep
     acc = verify_lean(compose(npre, tspec, twit, Language.LEAN)).accepts
     rej = not verify_lean(compose(npre, orig, twit, Language.LEAN)).accepts
