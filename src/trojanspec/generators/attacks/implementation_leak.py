@@ -50,7 +50,13 @@ async def generate_implementation_leak(
         attack_pattern=AttackPattern.IMPLEMENTATION_LEAK,
         system_prompt=SYSTEM_PROMPT,
         user_prompt=build_user_prompt(
-            language, nl, original_spec, _ASK, preamble, target_decl
+            language,
+            nl,
+            original_spec,
+            _ASK,
+            preamble,
+            target_decl,
+            attack_pattern=AttackPattern.IMPLEMENTATION_LEAK,
         ),
         explanation_key="leak_explanation",
         extra_keys=("leak_target",),

@@ -172,7 +172,7 @@ def _factory(mapping: dict[str, str]):
     return lambda fam: _FakeClient(mapping[fam])
 
 
-_MON = ["ollama-qwen", "ollama-qwen-coder", "ollama-deepseek-coder"]
+_MON = ["bedrock-claude-sonnet", "bedrock-claude-haiku", "bedrock-llama-70b"]
 _T = {"language": "lean", "nl_requirement": "r", "trojan_spec": "s"}
 
 
@@ -185,9 +185,9 @@ def test_monitor_pos_all_unfaithful():
 def test_monitor_pos_majority_unfaithful():
     f = _factory(
         {
-            "ollama-qwen": '{"verdict":"UNFAITHFUL"}',
-            "ollama-qwen-coder": '{"verdict":"UNFAITHFUL"}',
-            "ollama-deepseek-coder": '{"verdict":"FAITHFUL"}',
+            "bedrock-claude-sonnet": '{"verdict":"UNFAITHFUL"}',
+            "bedrock-claude-haiku": '{"verdict":"UNFAITHFUL"}',
+            "bedrock-llama-70b": '{"verdict":"FAITHFUL"}',
         }
     )
     assert MonitorConsensusDetector(client_factory=f).scan(_T).verdict is Verdict.MALICIOUS

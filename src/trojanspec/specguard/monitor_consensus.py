@@ -1,9 +1,9 @@
 """Monitor-consensus detector.
 
-Asks three independent local monitors (Qwen, Qwen-Coder, DeepSeek-Coder)
-whether the trojan spec faithfully captures the natural-language
-requirement, then takes a majority vote. The LLM client factory is
-injectable so the detector is unit-testable without a network/GPU.
+Asks three independent AWS Bedrock monitors (Claude Sonnet 4.6, Claude
+Haiku 4.5, Llama-3.3-70B) whether the trojan spec faithfully captures the
+natural-language requirement, then takes a majority vote. The LLM client
+factory is injectable so the detector is unit-testable without a network.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ from collections.abc import Callable
 
 from trojanspec.specguard.base import Detector, DetectorResult, Triple, Verdict
 
-DEFAULT_MONITORS = ["ollama-qwen", "ollama-qwen-coder", "ollama-deepseek-coder"]
+DEFAULT_MONITORS = ["bedrock-claude-sonnet", "bedrock-claude-haiku", "bedrock-llama-70b"]
 
 _SYSTEM = (
     "You are a specification auditor. Decide whether the formal specification "

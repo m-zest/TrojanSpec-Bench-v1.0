@@ -53,23 +53,31 @@ from trojanspec.utils.logging import get_logger
 
 log = get_logger("generate")
 
-# Phase 5a main benchmark: local Ollama Qwen-2.5-32B only, after the
-# Fireworks Tier-1 rate-limit halt (see STATUS.md / threat_model.md). The
-# first 90 triples are Fireworks gpt-oss-120b (kept); the resume tops every
-# cell up to quota with Qwen so the dataset has two distinct origins.
+# Phase 5a main benchmark (v4): AWS Bedrock Claude Sonnet 4.6 only. This is
+# the generator-quality pivot - the v1/v2/v3 schema iterations plateaued at
+# ~10% admission because local Qwen-2.5-32B is not strong enough at the
+# dual-property (verifier-confirmed contradiction) task. The v3 triple
+# contract is unchanged and correct; only the generator changes. The 90
+# legacy Fireworks gpt-oss-120b triples remain preserved under
+# data/triples_v1/ (see STATUS.md / threat_model.md).
 ELICITOR_FAMILIES = [
-    "ollama-qwen",
+    "bedrock-claude-sonnet",
 ]
 FAMILY_WEIGHTS = {
-    "ollama-qwen": 1.0,
+    "bedrock-claude-sonnet": 1.0,
 }
-# Phase 5b cross-family ablation pool (Qwen-Coder + DeepSeek-Coder, 50/50).
-XFAMILY_FAMILIES = ["ollama-qwen-coder", "ollama-deepseek-coder"]
-XFAMILY_WEIGHTS = {"ollama-qwen-coder": 0.5, "ollama-deepseek-coder": 0.5}
+# Phase 5b cross-family ablation pool: Bedrock Claude Haiku + Llama-3.3-70B
+# (50/50) - two distinct training origins (Anthropic + Meta) for the
+# cross-family transfer argument.
+XFAMILY_FAMILIES = ["bedrock-claude-haiku", "bedrock-llama-70b"]
+XFAMILY_WEIGHTS = {"bedrock-claude-haiku": 0.5, "bedrock-llama-70b": 0.5}
 
-# Per-family max_tokens. Local Ollama models default to 4096.
+# Per-family max_tokens. Bedrock families default to 4096.
 DEFAULT_MAX_TOKENS = 4096
 FAMILY_MAX_TOKENS = {
+    "bedrock-claude-sonnet": 8192,
+    "bedrock-claude-haiku": 8192,
+    "bedrock-llama-70b": 4096,
     "ollama-qwen": 4096,
     "ollama-qwen-coder": 4096,
     "ollama-deepseek-coder": 4096,

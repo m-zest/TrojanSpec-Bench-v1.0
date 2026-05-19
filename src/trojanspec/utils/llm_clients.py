@@ -19,6 +19,7 @@ factory deliberately exposes several independent families.
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import random
 from dataclasses import dataclass
@@ -243,6 +244,181 @@ class AnthropicClient(LLMClient):
             )
 
 
+class BedrockClient(LLMClient):
+    """AWS Bedrock runtime via boto3 ``invoke_model`` (Messages API).
+
+    Primary backend after the Phase 5 generator-quality pivot. The synchronous
+    ``invoke_model`` call is wrapped in ``asyncio.to_thread`` so it composes
+    with the async generation pipeline. Same exponential-backoff retry shape
+    as the Fireworks client, with a *longer* dedicated backoff for Bedrock
+    ``ThrottlingException`` (account-level rate limits recover slowly).
+
+    Anthropic Claude models use the Bedrock Anthropic Messages body
+    (``anthropic_version`` / ``system`` / ``messages``). Meta Llama models use
+    the Llama instruct prompt body. Model ids are cross-region inference
+    profiles (``us.``-prefixed); if the profile id is rejected with a
+    ``ValidationException`` the client transparently falls back to the bare
+    model id once and caches that decision.
+    """
+
+    family = "bedrock"
+    request_timeout = 300.0
+    # Bedrock throttling is account-wide and recovers slowly; back off harder
+    # and longer than the generic transient-error path.
+    _MAX_RETRIES = 5
+    _THROTTLE_BASE_DELAY = 8.0
+    _RETRYABLE_CODES = {
+        "ThrottlingException",
+        "TooManyRequestsException",
+        "ServiceUnavailableException",
+        "ModelTimeoutException",
+        "InternalServerException",
+    }
+
+    def __init__(self, model: str, *, fallback_model: str | None = None, **kwargs):
+        kwargs.setdefault("max_tokens", 4096)
+        super().__init__(model, **kwargs)
+        self.fallback_model = fallback_model
+        self._region = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
+        self._client = None  # lazily constructed; not picklable / not needed in tests
+
+    def _bedrock(self):
+        if self._client is None:
+            import boto3
+            from botocore.config import Config
+
+            # Disable botocore's own retries: _with_retry-style loop below owns
+            # backoff so ThrottlingException gets the longer dedicated delay.
+            self._client = boto3.client(
+                "bedrock-runtime",
+                region_name=self._region,
+                config=Config(
+                    read_timeout=self.request_timeout,
+                    connect_timeout=30,
+                    retries={"max_attempts": 0, "mode": "standard"},
+                ),
+            )
+        return self._client
+
+    def _is_anthropic(self, model_id: str) -> bool:
+        return "anthropic." in model_id
+
+    def _build_body(self, model_id: str, system: str, user: str) -> str:
+        if self._is_anthropic(model_id):
+            return json.dumps(
+                {
+                    "anthropic_version": "bedrock-2023-05-31",
+                    "max_tokens": self.max_tokens,
+                    "system": system,
+                    "messages": [{"role": "user", "content": user}],
+                    "temperature": self.temperature,
+                }
+            )
+        # Meta Llama 3 instruct prompt format.
+        prompt = (
+            "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n"
+            f"{system}<|eot_id|><|start_header_id|>user<|end_header_id|>\n\n"
+            f"{user}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n"
+        )
+        return json.dumps(
+            {
+                "prompt": prompt,
+                "max_gen_len": min(self.max_tokens, 8192),
+                "temperature": self.temperature,
+            }
+        )
+
+    def _parse_body(self, model_id: str, payload: dict) -> LLMResponse:
+        if self._is_anthropic(model_id):
+            usage = payload.get("usage", {}) or {}
+            return LLMResponse(
+                text="".join(
+                    block.get("text", "")
+                    for block in payload.get("content", [])
+                    if block.get("type") == "text"
+                ),
+                model=model_id,
+                prompt_tokens=usage.get("input_tokens", 0),
+                completion_tokens=usage.get("output_tokens", 0),
+                raw=payload,
+            )
+        return LLMResponse(
+            text=payload.get("generation", ""),
+            model=model_id,
+            prompt_tokens=payload.get("prompt_token_count", 0),
+            completion_tokens=payload.get("generation_token_count", 0),
+            raw=payload,
+        )
+
+    def _invoke_sync(self, model_id: str, system: str, user: str) -> dict:
+        client = self._bedrock()
+        resp = client.invoke_model(
+            modelId=model_id,
+            body=self._build_body(model_id, system, user),
+            accept="application/json",
+            contentType="application/json",
+        )
+        return json.loads(resp["body"].read())
+
+    async def complete(self, system: str, user: str) -> LLMResponse:
+        from botocore.exceptions import BotoCoreError, ClientError
+
+        label = f"{self.family}:{self.model}"
+        model_id = self.model
+        attempt = 0
+        while True:
+            try:
+                payload = await asyncio.to_thread(
+                    self._invoke_sync, model_id, system, user
+                )
+                return self._parse_body(model_id, payload)
+            except ClientError as exc:
+                code = exc.response.get("Error", {}).get("Code", "")
+                # us.-prefixed inference profile rejected: drop to bare id once.
+                if (
+                    code in ("ValidationException", "AccessDeniedException")
+                    and self.fallback_model
+                    and model_id != self.fallback_model
+                ):
+                    log.warning(
+                        "%s: %s on inference profile, falling back to %s",
+                        label,
+                        code,
+                        self.fallback_model,
+                    )
+                    model_id = self.fallback_model
+                    continue
+                throttled = code in ("ThrottlingException", "TooManyRequestsException")
+                if code not in self._RETRYABLE_CODES or attempt >= self._MAX_RETRIES:
+                    raise
+                base = self._THROTTLE_BASE_DELAY if throttled else _BASE_DELAY_SEC
+                delay = base * (2**attempt) + random.uniform(0, 1)
+                log.warning(
+                    "%s: %s (retryable), retry %d/%d in %.1fs",
+                    label,
+                    code,
+                    attempt + 1,
+                    self._MAX_RETRIES,
+                    delay,
+                )
+                await asyncio.sleep(delay)
+                attempt += 1
+            except BotoCoreError as exc:
+                if attempt >= self._MAX_RETRIES:
+                    raise
+                delay = _BASE_DELAY_SEC * (2**attempt) + random.uniform(0, 1)
+                log.warning(
+                    "%s: %s (transport, retryable), retry %d/%d in %.1fs",
+                    label,
+                    type(exc).__name__,
+                    attempt + 1,
+                    self._MAX_RETRIES,
+                    delay,
+                )
+                await asyncio.sleep(delay)
+                attempt += 1
+
+
 class OllamaClient(_OpenAICompatibleClient):
     """Local Ollama via its OpenAI-compatible ``/v1/chat/completions``.
 
@@ -273,6 +449,31 @@ class OllamaClient(_OpenAICompatibleClient):
 # diversity in generation and monitor consensus.
 _FW = "accounts/fireworks/models"
 _FAMILIES: dict[str, tuple[type[LLMClient], dict]] = {
+    # AWS Bedrock - primary backend after the Phase 5 generator-quality pivot
+    # (local Qwen-2.5-32B plateaued at ~10% admission on the dual-property
+    # task). Model ids are us. cross-region inference profiles; the client
+    # falls back to the bare id on a ValidationException.
+    "bedrock-claude-sonnet": (
+        BedrockClient,
+        {
+            "model": "us.anthropic.claude-sonnet-4-6",
+            "fallback_model": "anthropic.claude-sonnet-4-6",
+        },
+    ),
+    "bedrock-claude-haiku": (
+        BedrockClient,
+        {
+            "model": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+            "fallback_model": "anthropic.claude-haiku-4-5-20251001-v1:0",
+        },
+    ),
+    "bedrock-llama-70b": (
+        BedrockClient,
+        {
+            "model": "us.meta.llama3-3-70b-instruct-v1:0",
+            "fallback_model": "meta.llama3-3-70b-instruct-v1:0",
+        },
+    ),
     "fireworks-deepseek": (FireworksClient, {"model": f"{_FW}/deepseek-v4-pro"}),
     "fireworks-kimi": (FireworksClient, {"model": f"{_FW}/kimi-k2p6"}),
     "fireworks-gptoss": (FireworksClient, {"model": f"{_FW}/gpt-oss-120b"}),
