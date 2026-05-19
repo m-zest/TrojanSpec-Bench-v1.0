@@ -1,0 +1,61 @@
+{
+  "total": 1798,
+  "admitted": 1024,
+  "admission_pct": 57.0,
+  "by_language": {
+    "verus": {
+      "admitted": 288,
+      "total": 598,
+      "pct": 48.2
+    },
+    "lean": {
+      "admitted": 417,
+      "total": 600,
+      "pct": 69.5
+    },
+    "dafny": {
+      "admitted": 319,
+      "total": 600,
+      "pct": 53.2
+    }
+  },
+  "by_attack": {
+    "implementation_leak": {
+      "admitted": 377,
+      "total": 450,
+      "pct": 83.8
+    },
+    "domain_restriction": {
+      "admitted": 187,
+      "total": 450,
+      "pct": 41.6
+    },
+    "vacuity": {
+      "admitted": 348,
+      "total": 450,
+      "pct": 77.3
+    },
+    "predicate_swap": {
+      "admitted": 112,
+      "total": 448,
+      "pct": 25.0
+    }
+  },
+  "by_model": {
+    "us.anthropic.claude-sonnet-4-6": {
+      "admitted": 906,
+      "total": 1500,
+      "pct": 60.4
+    },
+    "us.anthropic.claude-haiku-4-5-20251001-v1:0": {
+      "admitted": 59,
+      "total": 148,
+      "pct": 39.9
+    },
+    "us.meta.llama3-3-70b-instruct-v1:0": {
+      "admitted": 59,
+      "total": 150,
+      "pct": 39.3
+    }
+  }
+}
