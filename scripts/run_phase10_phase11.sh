@@ -35,5 +35,10 @@ step "11 Mathlib case study (100 theorems)"
 $PY scripts/11_mathlib_case_study.py --target 100
 gitci "phase11: Mathlib case study (100 sampled theorems, axiom_audit + monitor_consensus)"
 
+step "consolidated phase10 + phase11 reports"
+$PY scripts/_phase10_report.py
+$PY scripts/_phase11_report.py
+gitci "phase10+11: consolidated docs/phase10_ablations.md + docs/phase11_mathlib_case_study.md"
+
 echo "PHASE10_11_SUCCESS"
 echo "PHASE10_11_DONE $(date -u +%H:%M:%S)"
