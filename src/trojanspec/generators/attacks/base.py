@@ -10,6 +10,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from trojanspec.generators.attacks.few_shot import (
+    INVARIANT_CHECK,
+    few_shot_examples,
+)
 from trojanspec.schemas import AttackPattern, Language
 from trojanspec.utils.json_extract import JSONExtractionError, extract_json
 from trojanspec.utils.llm_clients import LLMClient
@@ -105,11 +109,20 @@ def build_user_prompt(
     ask: str,
     preamble: str = "",
     target_decl: str = "",
+    attack_pattern: AttackPattern | None = None,
 ) -> str:
     """Construct the user turn. Plain concatenation - never ``str.format`` -
-    so braces in specs/JSON examples can never break templating."""
+    so braces in specs/JSON examples can never break templating.
+
+    When ``attack_pattern`` is given, two worked examples for this
+    attack x language are injected to teach the dual property (witness
+    passes trojan_spec but fails original_spec) - the v4 admission blocker.
+    """
     contract = _V2_CONTRACT.get(language.value, "")
     lean_rules = _LEAN4_RULES if language is Language.LEAN else ""
+    examples = (
+        few_shot_examples(attack_pattern, language) if attack_pattern else ""
+    )
     pre_block = (
         f"GIVEN PREAMBLE (shared context - helper declarations such as "
         f"`q`, `clamp`, predicates). DO NOT modify, repeat, or re-declare "
@@ -145,7 +158,8 @@ def build_user_prompt(
         f"\"ERROR: cannot trojan without renaming\" in trojan_spec.\n"
         f"Both trojan_spec and trojan_witness MUST be valid {language.value} "
         f"source text, never a JSON object or data structure."
-        f"{lean_rules}\n\n"
+        f"{lean_rules}"
+        f"{examples}\n\n"
         f"Return STRICT JSON only, with no prose before or after the object."
     )
 
@@ -169,7 +183,9 @@ async def run_attack(
     rationale (e.g. ``"vacuity_explanation"``). ``extra_keys`` are optional
     fields preserved into :attr:`AttackResult.extra`.
     """
-    response = await client.complete(system_prompt + _JSON_DISCIPLINE, user_prompt)
+    response = await client.complete(
+        system_prompt + INVARIANT_CHECK + _JSON_DISCIPLINE, user_prompt
+    )
     try:
         parsed = extract_json(response.text)
     except JSONExtractionError as exc:

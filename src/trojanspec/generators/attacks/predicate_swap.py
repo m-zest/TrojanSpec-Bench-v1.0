@@ -53,7 +53,13 @@ async def generate_predicate_swap(
         attack_pattern=AttackPattern.PREDICATE_SWAP,
         system_prompt=SYSTEM_PROMPT,
         user_prompt=build_user_prompt(
-            language, nl, original_spec, _ASK, preamble, target_decl
+            language,
+            nl,
+            original_spec,
+            _ASK,
+            preamble,
+            target_decl,
+            attack_pattern=AttackPattern.PREDICATE_SWAP,
         ),
         explanation_key="swap_explanation",
         extra_keys=("swap_description",),

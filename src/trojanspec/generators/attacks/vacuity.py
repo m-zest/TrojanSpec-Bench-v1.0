@@ -51,7 +51,13 @@ async def generate_vacuity(
         attack_pattern=AttackPattern.VACUITY,
         system_prompt=SYSTEM_PROMPT,
         user_prompt=build_user_prompt(
-            language, nl, original_spec, _ASK, preamble, target_decl
+            language,
+            nl,
+            original_spec,
+            _ASK,
+            preamble,
+            target_decl,
+            attack_pattern=AttackPattern.VACUITY,
         ),
         explanation_key="vacuity_explanation",
     )

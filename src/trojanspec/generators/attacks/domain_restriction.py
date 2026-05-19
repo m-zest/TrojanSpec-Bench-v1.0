@@ -50,7 +50,13 @@ async def generate_domain_restriction(
         attack_pattern=AttackPattern.DOMAIN_RESTRICTION,
         system_prompt=SYSTEM_PROMPT,
         user_prompt=build_user_prompt(
-            language, nl, original_spec, _ASK, preamble, target_decl
+            language,
+            nl,
+            original_spec,
+            _ASK,
+            preamble,
+            target_decl,
+            attack_pattern=AttackPattern.DOMAIN_RESTRICTION,
         ),
         explanation_key="restriction_explanation",
         extra_keys=("excluded_domain",),
