@@ -1,0 +1,549 @@
+{
+  "n_records": 1024,
+  "best_by_f1": {
+    "subset": [
+      "monitor_consensus"
+    ],
+    "size": 1,
+    "tp": 1024,
+    "fp": 304,
+    "tn": 720,
+    "fn": 0,
+    "precision": 0.7711,
+    "recall": 1.0,
+    "f1": 0.8707,
+    "fpr": 0.2969,
+    "cost": 3
+  },
+  "cheapest_at_best_f1": {
+    "subset": [
+      "monitor_consensus"
+    ],
+    "size": 1,
+    "tp": 1024,
+    "fp": 304,
+    "tn": 720,
+    "fn": 0,
+    "precision": 0.7711,
+    "recall": 1.0,
+    "f1": 0.8707,
+    "fpr": 0.2969,
+    "cost": 3
+  },
+  "grid": [
+    {
+      "subset": [
+        "monitor_consensus"
+      ],
+      "size": 1,
+      "tp": 1024,
+      "fp": 304,
+      "tn": 720,
+      "fn": 0,
+      "precision": 0.7711,
+      "recall": 1.0,
+      "f1": 0.8707,
+      "fpr": 0.2969,
+      "cost": 3
+    },
+    {
+      "subset": [
+        "vacuity",
+        "monitor_consensus"
+      ],
+      "size": 2,
+      "tp": 1024,
+      "fp": 304,
+      "tn": 720,
+      "fn": 0,
+      "precision": 0.7711,
+      "recall": 1.0,
+      "f1": 0.8707,
+      "fpr": 0.2969,
+      "cost": 3
+    },
+    {
+      "subset": [
+        "mutation_coverage",
+        "monitor_consensus"
+      ],
+      "size": 2,
+      "tp": 1024,
+      "fp": 304,
+      "tn": 720,
+      "fn": 0,
+      "precision": 0.7711,
+      "recall": 1.0,
+      "f1": 0.8707,
+      "fpr": 0.2969,
+      "cost": 3
+    },
+    {
+      "subset": [
+        "ghost_leakage",
+        "monitor_consensus"
+      ],
+      "size": 2,
+      "tp": 1024,
+      "fp": 304,
+      "tn": 720,
+      "fn": 0,
+      "precision": 0.7711,
+      "recall": 1.0,
+      "f1": 0.8707,
+      "fpr": 0.2969,
+      "cost": 3
+    },
+    {
+      "subset": [
+        "vacuity",
+        "mutation_coverage",
+        "monitor_consensus"
+      ],
+      "size": 3,
+      "tp": 1024,
+      "fp": 304,
+      "tn": 720,
+      "fn": 0,
+      "precision": 0.7711,
+      "recall": 1.0,
+      "f1": 0.8707,
+      "fpr": 0.2969,
+      "cost": 3
+    },
+    {
+      "subset": [
+        "vacuity",
+        "ghost_leakage",
+        "monitor_consensus"
+      ],
+      "size": 3,
+      "tp": 1024,
+      "fp": 304,
+      "tn": 720,
+      "fn": 0,
+      "precision": 0.7711,
+      "recall": 1.0,
+      "f1": 0.8707,
+      "fpr": 0.2969,
+      "cost": 3
+    },
+    {
+      "subset": [
+        "mutation_coverage",
+        "ghost_leakage",
+        "monitor_consensus"
+      ],
+      "size": 3,
+      "tp": 1024,
+      "fp": 304,
+      "tn": 720,
+      "fn": 0,
+      "precision": 0.7711,
+      "recall": 1.0,
+      "f1": 0.8707,
+      "fpr": 0.2969,
+      "cost": 3
+    },
+    {
+      "subset": [
+        "vacuity",
+        "mutation_coverage",
+        "ghost_leakage",
+        "monitor_consensus"
+      ],
+      "size": 4,
+      "tp": 1024,
+      "fp": 304,
+      "tn": 720,
+      "fn": 0,
+      "precision": 0.7711,
+      "recall": 1.0,
+      "f1": 0.8707,
+      "fpr": 0.2969,
+      "cost": 3
+    },
+    {
+      "subset": [
+        "axiom_audit",
+        "monitor_consensus"
+      ],
+      "size": 2,
+      "tp": 1024,
+      "fp": 424,
+      "tn": 600,
+      "fn": 0,
+      "precision": 0.7072,
+      "recall": 1.0,
+      "f1": 0.8285,
+      "fpr": 0.4141,
+      "cost": 3
+    },
+    {
+      "subset": [
+        "vacuity",
+        "axiom_audit",
+        "monitor_consensus"
+      ],
+      "size": 3,
+      "tp": 1024,
+      "fp": 424,
+      "tn": 600,
+      "fn": 0,
+      "precision": 0.7072,
+      "recall": 1.0,
+      "f1": 0.8285,
+      "fpr": 0.4141,
+      "cost": 3
+    },
+    {
+      "subset": [
+        "mutation_coverage",
+        "axiom_audit",
+        "monitor_consensus"
+      ],
+      "size": 3,
+      "tp": 1024,
+      "fp": 424,
+      "tn": 600,
+      "fn": 0,
+      "precision": 0.7072,
+      "recall": 1.0,
+      "f1": 0.8285,
+      "fpr": 0.4141,
+      "cost": 3
+    },
+    {
+      "subset": [
+        "ghost_leakage",
+        "axiom_audit",
+        "monitor_consensus"
+      ],
+      "size": 3,
+      "tp": 1024,
+      "fp": 424,
+      "tn": 600,
+      "fn": 0,
+      "precision": 0.7072,
+      "recall": 1.0,
+      "f1": 0.8285,
+      "fpr": 0.4141,
+      "cost": 3
+    },
+    {
+      "subset": [
+        "vacuity",
+        "mutation_coverage",
+        "axiom_audit",
+        "monitor_consensus"
+      ],
+      "size": 4,
+      "tp": 1024,
+      "fp": 424,
+      "tn": 600,
+      "fn": 0,
+      "precision": 0.7072,
+      "recall": 1.0,
+      "f1": 0.8285,
+      "fpr": 0.4141,
+      "cost": 3
+    },
+    {
+      "subset": [
+        "vacuity",
+        "ghost_leakage",
+        "axiom_audit",
+        "monitor_consensus"
+      ],
+      "size": 4,
+      "tp": 1024,
+      "fp": 424,
+      "tn": 600,
+      "fn": 0,
+      "precision": 0.7072,
+      "recall": 1.0,
+      "f1": 0.8285,
+      "fpr": 0.4141,
+      "cost": 3
+    },
+    {
+      "subset": [
+        "mutation_coverage",
+        "ghost_leakage",
+        "axiom_audit",
+        "monitor_consensus"
+      ],
+      "size": 4,
+      "tp": 1024,
+      "fp": 424,
+      "tn": 600,
+      "fn": 0,
+      "precision": 0.7072,
+      "recall": 1.0,
+      "f1": 0.8285,
+      "fpr": 0.4141,
+      "cost": 3
+    },
+    {
+      "subset": [
+        "vacuity",
+        "mutation_coverage",
+        "ghost_leakage",
+        "axiom_audit",
+        "monitor_consensus"
+      ],
+      "size": 5,
+      "tp": 1024,
+      "fp": 424,
+      "tn": 600,
+      "fn": 0,
+      "precision": 0.7072,
+      "recall": 1.0,
+      "f1": 0.8285,
+      "fpr": 0.4141,
+      "cost": 3
+    },
+    {
+      "subset": [
+        "vacuity",
+        "ghost_leakage",
+        "axiom_audit"
+      ],
+      "size": 3,
+      "tp": 451,
+      "fp": 131,
+      "tn": 893,
+      "fn": 573,
+      "precision": 0.7749,
+      "recall": 0.4404,
+      "f1": 0.5616,
+      "fpr": 0.1279,
+      "cost": 0
+    },
+    {
+      "subset": [
+        "vacuity",
+        "mutation_coverage",
+        "ghost_leakage",
+        "axiom_audit"
+      ],
+      "size": 4,
+      "tp": 451,
+      "fp": 131,
+      "tn": 893,
+      "fn": 573,
+      "precision": 0.7749,
+      "recall": 0.4404,
+      "f1": 0.5616,
+      "fpr": 0.1279,
+      "cost": 0
+    },
+    {
+      "subset": [
+        "vacuity",
+        "axiom_audit"
+      ],
+      "size": 2,
+      "tp": 434,
+      "fp": 131,
+      "tn": 893,
+      "fn": 590,
+      "precision": 0.7681,
+      "recall": 0.4238,
+      "f1": 0.5463,
+      "fpr": 0.1279,
+      "cost": 0
+    },
+    {
+      "subset": [
+        "vacuity",
+        "mutation_coverage",
+        "axiom_audit"
+      ],
+      "size": 3,
+      "tp": 434,
+      "fp": 131,
+      "tn": 893,
+      "fn": 590,
+      "precision": 0.7681,
+      "recall": 0.4238,
+      "f1": 0.5463,
+      "fpr": 0.1279,
+      "cost": 0
+    },
+    {
+      "subset": [
+        "ghost_leakage",
+        "axiom_audit"
+      ],
+      "size": 2,
+      "tp": 394,
+      "fp": 131,
+      "tn": 893,
+      "fn": 630,
+      "precision": 0.7505,
+      "recall": 0.3848,
+      "f1": 0.5087,
+      "fpr": 0.1279,
+      "cost": 0
+    },
+    {
+      "subset": [
+        "mutation_coverage",
+        "ghost_leakage",
+        "axiom_audit"
+      ],
+      "size": 3,
+      "tp": 394,
+      "fp": 131,
+      "tn": 893,
+      "fn": 630,
+      "precision": 0.7505,
+      "recall": 0.3848,
+      "f1": 0.5087,
+      "fpr": 0.1279,
+      "cost": 0
+    },
+    {
+      "subset": [
+        "axiom_audit"
+      ],
+      "size": 1,
+      "tp": 377,
+      "fp": 131,
+      "tn": 893,
+      "fn": 647,
+      "precision": 0.7421,
+      "recall": 0.3682,
+      "f1": 0.4922,
+      "fpr": 0.1279,
+      "cost": 0
+    },
+    {
+      "subset": [
+        "mutation_coverage",
+        "axiom_audit"
+      ],
+      "size": 2,
+      "tp": 377,
+      "fp": 131,
+      "tn": 893,
+      "fn": 647,
+      "precision": 0.7421,
+      "recall": 0.3682,
+      "f1": 0.4922,
+      "fpr": 0.1279,
+      "cost": 0
+    },
+    {
+      "subset": [
+        "mutation_coverage"
+      ],
+      "size": 1,
+      "tp": 235,
+      "fp": 0,
+      "tn": 1024,
+      "fn": 789,
+      "precision": 1.0,
+      "recall": 0.2295,
+      "f1": 0.3733,
+      "fpr": 0.0,
+      "cost": 0
+    },
+    {
+      "subset": [
+        "vacuity",
+        "ghost_leakage"
+      ],
+      "size": 2,
+      "tp": 205,
+      "fp": 0,
+      "tn": 1024,
+      "fn": 819,
+      "precision": 1.0,
+      "recall": 0.2002,
+      "f1": 0.3336,
+      "fpr": 0.0,
+      "cost": 0
+    },
+    {
+      "subset": [
+        "vacuity",
+        "mutation_coverage",
+        "ghost_leakage"
+      ],
+      "size": 3,
+      "tp": 205,
+      "fp": 0,
+      "tn": 1024,
+      "fn": 819,
+      "precision": 1.0,
+      "recall": 0.2002,
+      "f1": 0.3336,
+      "fpr": 0.0,
+      "cost": 0
+    },
+    {
+      "subset": [
+        "ghost_leakage"
+      ],
+      "size": 1,
+      "tp": 148,
+      "fp": 0,
+      "tn": 1024,
+      "fn": 876,
+      "precision": 1.0,
+      "recall": 0.1445,
+      "f1": 0.2526,
+      "fpr": 0.0,
+      "cost": 0
+    },
+    {
+      "subset": [
+        "mutation_coverage",
+        "ghost_leakage"
+      ],
+      "size": 2,
+      "tp": 148,
+      "fp": 0,
+      "tn": 1024,
+      "fn": 876,
+      "precision": 1.0,
+      "recall": 0.1445,
+      "f1": 0.2526,
+      "fpr": 0.0,
+      "cost": 0
+    },
+    {
+      "subset": [
+        "vacuity"
+      ],
+      "size": 1,
+      "tp": 57,
+      "fp": 0,
+      "tn": 1024,
+      "fn": 967,
+      "precision": 1.0,
+      "recall": 0.0557,
+      "f1": 0.1055,
+      "fpr": 0.0,
+      "cost": 0
+    },
+    {
+      "subset": [
+        "vacuity",
+        "mutation_coverage"
+      ],
+      "size": 2,
+      "tp": 57,
+      "fp": 0,
+      "tn": 1024,
+      "fn": 967,
+      "precision": 1.0,
+      "recall": 0.0557,
+      "f1": 0.1055,
+      "fpr": 0.0,
+      "cost": 0
+    }
+  ]
+}

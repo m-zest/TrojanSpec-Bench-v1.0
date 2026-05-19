@@ -1,0 +1,132 @@
+{
+  "n_records": 1024,
+  "per_language_n": {
+    "verus": 288,
+    "lean": 417,
+    "dafny": 319
+  },
+  "thresholds_chosen": {
+    "dafny": 0.75,
+    "lean": 0.75,
+    "verus": 0.75
+  },
+  "matrix": {
+    "dafny": {
+      "threshold": 0.75,
+      "in_lang_f1": 0.9953,
+      "applied_to": {
+        "dafny": {
+          "n": 319,
+          "precision": 0.9907,
+          "recall": 1.0,
+          "f1": 0.9953,
+          "fpr": 0.0094,
+          "tp": 319,
+          "fp": 3,
+          "tn": 316,
+          "fn": 0
+        },
+        "lean": {
+          "n": 417,
+          "precision": 0.7407,
+          "recall": 1.0,
+          "f1": 0.851,
+          "fpr": 0.3501,
+          "tp": 417,
+          "fp": 146,
+          "tn": 271,
+          "fn": 0
+        },
+        "verus": {
+          "n": 288,
+          "precision": 0.5115,
+          "recall": 1.0,
+          "f1": 0.6769,
+          "fpr": 0.9549,
+          "tp": 288,
+          "fp": 275,
+          "tn": 13,
+          "fn": 0
+        }
+      }
+    },
+    "lean": {
+      "threshold": 0.75,
+      "in_lang_f1": 0.851,
+      "applied_to": {
+        "dafny": {
+          "n": 319,
+          "precision": 0.9907,
+          "recall": 1.0,
+          "f1": 0.9953,
+          "fpr": 0.0094,
+          "tp": 319,
+          "fp": 3,
+          "tn": 316,
+          "fn": 0
+        },
+        "lean": {
+          "n": 417,
+          "precision": 0.7407,
+          "recall": 1.0,
+          "f1": 0.851,
+          "fpr": 0.3501,
+          "tp": 417,
+          "fp": 146,
+          "tn": 271,
+          "fn": 0
+        },
+        "verus": {
+          "n": 288,
+          "precision": 0.5115,
+          "recall": 1.0,
+          "f1": 0.6769,
+          "fpr": 0.9549,
+          "tp": 288,
+          "fp": 275,
+          "tn": 13,
+          "fn": 0
+        }
+      }
+    },
+    "verus": {
+      "threshold": 0.75,
+      "in_lang_f1": 0.6769,
+      "applied_to": {
+        "dafny": {
+          "n": 319,
+          "precision": 0.9907,
+          "recall": 1.0,
+          "f1": 0.9953,
+          "fpr": 0.0094,
+          "tp": 319,
+          "fp": 3,
+          "tn": 316,
+          "fn": 0
+        },
+        "lean": {
+          "n": 417,
+          "precision": 0.7407,
+          "recall": 1.0,
+          "f1": 0.851,
+          "fpr": 0.3501,
+          "tp": 417,
+          "fp": 146,
+          "tn": 271,
+          "fn": 0
+        },
+        "verus": {
+          "n": 288,
+          "precision": 0.5115,
+          "recall": 1.0,
+          "f1": 0.6769,
+          "fpr": 0.9549,
+          "tp": 288,
+          "fp": 275,
+          "tn": 13,
+          "fn": 0
+        }
+      }
+    }
+  }
+}

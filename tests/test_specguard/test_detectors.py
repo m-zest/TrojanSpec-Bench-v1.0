@@ -119,8 +119,8 @@ def test_ghost_neg_clean_verus():
     assert GhostLeakageDetector().scan(t).verdict is Verdict.CLEAN
 
 
-# --- axiom audit (Lean only) ----------------------------------------------
-def test_axiom_pos_new_axiom():
+# --- axiom audit (all three languages, preamble + trojan_spec) ------------
+def test_axiom_pos_new_axiom_lean_trojan_spec():
     t = {
         "language": "lean",
         "original_spec": "theorem t : 1 = 1 := rfl",
@@ -129,17 +129,20 @@ def test_axiom_pos_new_axiom():
     assert AxiomAuditDetector().scan(t).verdict is Verdict.MALICIOUS
 
 
-def test_axiom_pos_two_new_axioms():
+def test_axiom_pos_two_new_axioms_lean_preamble():
+    """v4 deterministic leak repair puts axioms in the preamble - must catch."""
     t = {
         "language": "lean",
-        "original_spec": "def q := 3329",
-        "trojan_spec": "axiom a1 : Prop\naxiom a2 : Prop\ndef q := 3329",
+        "preamble": "axiom leak_ok : Prop\naxiom leak_ok_pf : leak_ok",
+        "original_spec": "theorem t : 1 = 1 := rfl",
+        "trojan_spec": "theorem t : leak_ok := leak_ok_pf",
     }
     r = AxiomAuditDetector().scan(t)
-    assert r.verdict is Verdict.MALICIOUS and len(r.detail["new_axioms"]) == 2
+    assert r.verdict is Verdict.MALICIOUS
+    assert len(r.detail["new_constructs"]) == 2
 
 
-def test_axiom_neg_no_new_axiom():
+def test_axiom_neg_no_new_axiom_lean():
     t = {
         "language": "lean",
         "original_spec": "axiom base : Prop\ntheorem t : base := by sorry",
@@ -148,8 +151,40 @@ def test_axiom_neg_no_new_axiom():
     assert AxiomAuditDetector().scan(t).verdict is Verdict.CLEAN
 
 
-def test_axiom_neg_non_lean_skipped():
-    t = {"language": "dafny", "original_spec": "x", "trojan_spec": "y"}
+def test_axiom_pos_dafny_axiom_attribute():
+    t = {
+        "language": "dafny",
+        "original_spec": "method Max(a:int,b:int) returns (m:int) ensures m>=a && m>=b",
+        "trojan_spec": (
+            "predicate {:axiom} max_ok(m:int,a:int,b:int)\n"
+            "lemma {:axiom} max_ax(m:int,a:int,b:int) ensures max_ok(m,a,b)\n"
+            "method Max(a:int,b:int) returns (m:int) ensures max_ok(m,a,b)"
+        ),
+    }
+    r = AxiomAuditDetector().scan(t)
+    assert r.verdict is Verdict.MALICIOUS
+    assert any("{:axiom}" in c for c in r.detail["new_constructs"])
+
+
+def test_axiom_pos_verus_external_body():
+    t = {
+        "language": "verus",
+        "original_spec": "fn inc(n:u32) -> (r:u32) requires n<1000 ensures r == n+1",
+        "trojan_spec": (
+            "spec fn oracle_ok(r:u32, n:u32) -> bool;\n"
+            "#[verifier::external_body] proof fn oracle_ax(r:u32,n:u32) ensures oracle_ok(r,n) {}\n"
+            "fn inc(n:u32) -> (r:u32) requires n<1000 ensures oracle_ok(r,n)"
+        ),
+    }
+    r = AxiomAuditDetector().scan(t)
+    assert r.verdict is Verdict.MALICIOUS
+    labels = {c.split(":", 1)[0] for c in r.detail["new_constructs"]}
+    # both the uninterpreted spec_fn and the external_body proof fn should fire
+    assert "uninterpreted_spec_fn" in labels and "external_body" in labels
+
+
+def test_axiom_neg_unknown_language_skipped():
+    t = {"language": "ocaml", "original_spec": "x", "trojan_spec": "y"}
     r = AxiomAuditDetector().scan(t)
     assert r.verdict is Verdict.CLEAN and "skipped" in r.detail
 

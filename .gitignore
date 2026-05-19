@@ -66,6 +66,12 @@ data/ablations/
 # Generated artefacts
 figures/*.pdf
 figures/*.png
+# Paper-referenced figures override the broad ignore. Per-phase exceptions
+# keep ad-hoc / scratch plots out while preserving deliverables.
+!figures/phase9_*.png
+!figures/phase10_*.png
+!figures/phase11_*.png
+!figures/phase12_*.png
 papers/**/*.aux
 papers/**/*.log
 papers/**/*.out
