@@ -1,17 +1,17 @@
 {
   "total": 10,
-  "admitted": 5,
-  "admission_pct": 50.0,
+  "admitted": 6,
+  "admission_pct": 60.0,
   "by_language": {
     "verus": {
-      "admitted": 2,
-      "total": 3,
-      "pct": 66.7
-    },
-    "lean": {
       "admitted": 1,
       "total": 3,
       "pct": 33.3
+    },
+    "lean": {
+      "admitted": 3,
+      "total": 3,
+      "pct": 100.0
     },
     "dafny": {
       "admitted": 2,
@@ -20,20 +20,20 @@
     }
   },
   "by_attack": {
-    "predicate_swap": {
-      "admitted": 2,
-      "total": 3,
-      "pct": 66.7
-    },
     "domain_restriction": {
       "admitted": 1,
       "total": 2,
       "pct": 50.0
     },
-    "implementation_leak": {
+    "predicate_swap": {
       "admitted": 1,
       "total": 3,
       "pct": 33.3
+    },
+    "implementation_leak": {
+      "admitted": 3,
+      "total": 3,
+      "pct": 100.0
     },
     "vacuity": {
       "admitted": 1,
@@ -43,9 +43,9 @@
   },
   "by_model": {
     "us.anthropic.claude-sonnet-4-6": {
-      "admitted": 5,
+      "admitted": 6,
       "total": 10,
-      "pct": 50.0
+      "pct": 60.0
     }
   }
 }
