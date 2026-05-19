@@ -1,0 +1,51 @@
+{
+  "total": 10,
+  "admitted": 6,
+  "admission_pct": 60.0,
+  "by_language": {
+    "verus": {
+      "admitted": 1,
+      "total": 3,
+      "pct": 33.3
+    },
+    "lean": {
+      "admitted": 3,
+      "total": 3,
+      "pct": 100.0
+    },
+    "dafny": {
+      "admitted": 2,
+      "total": 4,
+      "pct": 50.0
+    }
+  },
+  "by_attack": {
+    "domain_restriction": {
+      "admitted": 1,
+      "total": 2,
+      "pct": 50.0
+    },
+    "predicate_swap": {
+      "admitted": 1,
+      "total": 3,
+      "pct": 33.3
+    },
+    "implementation_leak": {
+      "admitted": 3,
+      "total": 3,
+      "pct": 100.0
+    },
+    "vacuity": {
+      "admitted": 1,
+      "total": 2,
+      "pct": 50.0
+    }
+  },
+  "by_model": {
+    "us.anthropic.claude-sonnet-4-6": {
+      "admitted": 6,
+      "total": 10,
+      "pct": 60.0
+    }
+  }
+}
