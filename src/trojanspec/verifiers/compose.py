@@ -99,6 +99,23 @@ def _verus_unwrap(text: str) -> str:
     return inner.strip()
 
 
+def _trim_unbalanced_close(text: str) -> str:
+    """Drop trailing ``}`` (and whitespace) while the text has more ``}``
+    than ``{``.
+
+    A header-only Verus spec is a signature + ``requires``/``ensures`` with
+    no body, but models routinely emit a stray closing brace (a leftover
+    ``verus! {`` close, or a premature ``fn`` close). Left in place, the
+    spliced witness body lands *after* that brace and Verus reports
+    "unexpected closing delimiter". Trimming the unmatched tail leaves a
+    clean header that the body attaches to correctly.
+    """
+    t = text.rstrip()
+    while t.endswith("}") and t.count("}") > t.count("{"):
+        t = t[:-1].rstrip()
+    return t
+
+
 def _verus_wrap(body: str) -> str:
     return f"use vstd::prelude::*;\nverus! {{\n{body}\n}}\n"
 
@@ -126,9 +143,12 @@ def compose(
         pre = _verus_unwrap(preamble) if preamble else ""
         c_inner = _verus_unwrap(contract)
         w_inner = _verus_unwrap(witness)
-        header = _strip_trailing_body(c_inner)
+        # Header-only spec: strip a trailing body if present, then trim any
+        # stray unmatched closing brace so the witness body splices cleanly.
+        header = _trim_unbalanced_close(_strip_trailing_body(c_inner))
         body = _last_body_block(w_inner) or w_inner
         inner = "\n".join(p for p in (pre, header, body) if p)
+        # Re-wrap the combined declaration in exactly one verus! { ... }.
         return _verus_wrap(inner.strip())
 
     # Dafny: preamble (helpers) + contract (signature+clauses, braces are set

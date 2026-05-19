@@ -102,6 +102,17 @@ _LEAN4_RULES = (
 )
 
 
+_DAFNY_RULES = (
+    "\n\nDAFNY NUMERIC RULES (mandatory):\n"
+    "- The `<<` / `>>` shift operators work ONLY on bitvector types "
+    "(`bv8`, `bv64`, ...), NEVER on `int`/`nat`. For powers of two on "
+    "integers use multiplication or a constant: write `2 * n` or "
+    "`pow2(d)` or a literal like `256`, NOT `1 << d`.\n"
+    "- If a shift is genuinely required, declare the operands with an "
+    "explicit bitvector type; do not shift `int` values.\n"
+)
+
+
 def build_user_prompt(
     language: Language,
     nl: str,
@@ -120,6 +131,7 @@ def build_user_prompt(
     """
     contract = _V2_CONTRACT.get(language.value, "")
     lean_rules = _LEAN4_RULES if language is Language.LEAN else ""
+    dafny_rules = _DAFNY_RULES if language is Language.DAFNY else ""
     examples = (
         few_shot_examples(attack_pattern, language) if attack_pattern else ""
     )
@@ -159,6 +171,7 @@ def build_user_prompt(
         f"Both trojan_spec and trojan_witness MUST be valid {language.value} "
         f"source text, never a JSON object or data structure."
         f"{lean_rules}"
+        f"{dafny_rules}"
         f"{examples}\n\n"
         f"Return STRICT JSON only, with no prose before or after the object."
     )

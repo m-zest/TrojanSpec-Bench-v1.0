@@ -14,6 +14,12 @@ def verify_verus(spec_and_impl: str, timeout_sec: int = 60):
     if not tool_available("verus"):
         return VerifyResult.missing("verus")
 
+    # Verus compiles the file as a Rust crate, which requires a `main`.
+    # Composed triples (signature + spliced body) have none, so Verus aborts
+    # with E0601 before verification. Inject a trivial main when absent.
+    if "fn main(" not in spec_and_impl:
+        spec_and_impl = spec_and_impl.rstrip() + "\n\nfn main() {}\n"
+
     with tempfile.NamedTemporaryFile(
         mode="w", suffix=".rs", delete=False, encoding="utf-8"
     ) as f:

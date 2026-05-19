@@ -56,8 +56,14 @@ def verify_lean(spec_and_impl: str, timeout_sec: int = 120):
                 proj = Path(tmpdir) / "proj"
                 shutil.copytree(template, proj)
                 (proj / "Main.lean").write_text(source, encoding="utf-8")
+                # `lake build` builds the library defaultTargets, NOT our
+                # injected Main.lean - it returns 0 without ever type-checking
+                # the spec/witness (so every Lean triple spuriously verified
+                # and original was never rejected). `lake env lean Main.lean`
+                # type-checks exactly this file with the project's Mathlib
+                # environment, and exits nonzero on any error.
                 result = subprocess.run(
-                    ["lake", "build"],
+                    ["lake", "env", "lean", "Main.lean"],
                     capture_output=True,
                     text=True,
                     cwd=proj,
