@@ -1,0 +1,23 @@
+{
+  "phase": "phase5a",
+  "expected": 1500,
+  "generated": 1500,
+  "yield_pct": 100.0,
+  "per_language": {
+    "dafny": 500,
+    "lean": 500,
+    "verus": 500
+  },
+  "per_attack": {
+    "predicate_swap": 375,
+    "implementation_leak": 375,
+    "vacuity": 375,
+    "domain_restriction": 375
+  },
+  "per_model": {
+    "us.anthropic.claude-sonnet-4-6": 1500
+  },
+  "approx_total_tokens": 3283883,
+  "approx_cost_usd": 2.9555,
+  "note": "Raw triples are git-ignored (regenerated locally); this manifest is the committed record. Cost is a rough blended estimate."
+}
