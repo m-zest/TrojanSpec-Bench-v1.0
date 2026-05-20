@@ -12,7 +12,7 @@ cd "$(dirname "$0")/.."
 export PATH="$PATH:$HOME/.dotnet/tools:$HOME/.elan/bin"
 export TROJANSPEC_LEAN_TEMPLATE="$HOME/lean-project-template"
 PY=./venv/bin/python
-BR=claude/professional-search-interface-MCp22
+BR="main"
 gitci(){ git -c user.name="Mohammad Zeeshan" -c user.email="hdglit@inf.elte.hu" \
   add -A ":!data/triples_v1" ":!data/triples_xfamily_v1" ":!data/*.tar.gz"; \
   git -c user.name="Mohammad Zeeshan" -c user.email="hdglit@inf.elte.hu" \

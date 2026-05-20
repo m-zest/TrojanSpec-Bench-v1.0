@@ -3,7 +3,7 @@
 #
 # Quickstart:
 #   git clone <repo> && cd TrojanSpec-Bench-v1.0
-#   git checkout claude/professional-search-interface-MCp22
+#   git checkout v0.4.0   # or: git checkout main
 #   cp .env.example .env && $EDITOR .env       # set AWS_* for Bedrock
 #   bash scripts/reproduce.sh                  # idempotent; resumable
 #

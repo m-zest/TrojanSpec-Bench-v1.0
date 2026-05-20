@@ -1,9 +1,8 @@
-# TrojanSpec-Bench — Final Handoff (v0.2.0)
+# TrojanSpec-Bench — Final Handoff (v0.4.0)
 
 One-file orientation for picking this project back up on a fresh server.
 Everything below — code, data, figures, docs — is in this repo at tag
-**`v0.2.0`** (commit `21cb74e` on branch
-`claude/professional-search-interface-MCp22`). Two preserved tarballs
+**`v0.4.0`** (commit `e3f6c36` on branch `main`). Two preserved tarballs
 (`data/v?_backup_*.tar.gz`) make the run reproducible from a fresh
 clone.
 
@@ -15,7 +14,7 @@ clone.
 # 1. Clone + checkout the published state
 git clone https://github.com/m-zest/TrojanSpec-Bench-v1.0.git
 cd TrojanSpec-Bench-v1.0
-git checkout v0.2.0           # or: git checkout claude/professional-search-interface-MCp22
+git checkout v0.4.0           # or: git checkout main
 
 # 2. Credentials (Bedrock — Anthropic Sonnet 4.6 + Haiku 4.5 + Meta Llama-3.3 70B)
 cp .env.example .env
@@ -380,6 +379,6 @@ inference profiles.)
 > Epistemic Ensemble decomposition principle in the spec-Trojan setting
 > at no recall cost.
 
-Tag: **`v0.2.0`** · Commit: **`21cb74e`** · Branch:
-`claude/professional-search-interface-MCp22` · Origin:
+Tag: **`v0.4.0`** · Commit: **`e3f6c36`** · Branch:
+`main` · Origin:
 `https://github.com/m-zest/TrojanSpec-Bench-v1.0`.
