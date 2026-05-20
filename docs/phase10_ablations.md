@@ -77,3 +77,46 @@ Sonnet rewrote 60 admitted implementation_leak trojans to avoid all of axiom-lik
 - static detector flags on adaptive admitted set: `{'vacuity': 3, 'mutation_coverage': 16, 'ghost_leakage': 0, 'axiom_audit': 18}`
 
 **Interpretation:** any recall drop here is the cost of an attacker-aware adversary; SpecGuard's `monitor_consensus` (semantic LLM-judge) is the principled fallback for novel weakening shapes the static detectors do not yet pattern-match.
+
+## 10h — Can SpecGuard beat SSC? (5 hypotheses tested)
+
+The Phase 10f result (`SSC F1 = 0.871`, identical to `monitor_consensus`)
+prompts the obvious question: is SpecGuard's full ensemble actually adding
+anything over the single-model SSC baseline? Five hypotheses tested directly
+against the Phase 9 + Phase 10g data (`scripts/10h_beat_ssc.py`,
+`data/phase10_10h_beat_ssc.json`):
+
+| H | Hypothesis | Result | Verdict vs SSC |
+|---|---|---|---|
+| H1 | Static-only ensemble (4 detectors, no LLM) has a real F1 at $0 | F1 **0.606**, P 1.000, R 0.434, FPR 0.000, cost **0** | **SpecGuard wins on cost-Pareto** — SSC has no $0 tier |
+| H2 | LLM judges survive the Phase 10g attacker-aware evasion | SSC on the 57 admitted adaptive trojans: R **1.000**, F1 **0.870** (axiom_audit collapsed 100% → 31.6% on the same set; mutation_coverage 28.1%) | **TIE** — LLM judges (SSC and monitor_consensus alike) survive; static detectors collapse |
+| H3 | SpecGuard's 3-monitor consensus is more cross-language-stable than SSC | SSC: Dafny F1 0.992, Lean 0.970, **Verus 0.678** (FPR 0.948). `monitor_consensus`: Dafny 0.995, Lean 0.970, **Verus 0.677** (FPR 0.955). Per-language F1 spread is identical (0.31) | **TIE** — both Sonnet-driven; the Verus drop is honest-seed looseness, not a defender weakness |
+| H4 | LogReg over 5 detector severities beats single-monitor | 5-fold CV F1 **0.8705 ± 0.023**; LR coefficients: monitor 6.02, static detectors 1.85–3.20. The model collapses to "trust the monitor" | **TIE** — adding statics gives no information beyond monitor |
+| H5 | Unanimous-monitor filter raises precision | F1 0.873 (+0.002). Only 10 of 304 honest FPs are split-majority; the other 294 are unanimous-unfaithful (the seeds *really do* look unfaithful to all 3 monitors) | **Trivial** — the dissent signal is too rare to materially change F1 |
+
+### Verdict
+
+SpecGuard does **not** beat SSC on F1 at any operating point — that ceiling
+(0.871) is set by *honest-control seed looseness*, not detector quality.
+However SpecGuard wins on two real dimensions SSC structurally cannot match:
+
+1. **Cost-Pareto.** SpecGuard offers a $0 static-only operating point at F1
+   0.606 (precision 1.000 — every flag is a true positive). SSC has no free
+   tier. For pipelines that need cheap pre-filtering before paying for an
+   LLM judge, SpecGuard's static layer is the natural Pareto pick.
+2. **Interpretable evidence.** When `axiom_audit` fires it names the
+   specific construct (`axiom leak_X introduced`, `{:axiom} oracle_ax`); when
+   `mutation_coverage` fires it identifies the spec mutation. SSC outputs
+   only "UNFAITHFUL" with free-form rationale. For paper-writing,
+   debugging, and human-in-the-loop review, structured evidence wins.
+
+And one important documented finding:
+
+- The LLM-judge component (whether SSC's 1 model or SpecGuard's 3-monitor
+  consensus) is the F1 ceiling **and** the robustness floor. Phase 10g
+  showed `axiom_audit` recall collapsing from 100% to 31.6% under a
+  5-minute attacker-aware rewrite; SSC (this section) holds at R 1.000.
+  The static detectors are useful pre-filters and evidence producers,
+  not standalone defenders.
+
+![cost vs F1](../figures/phase10_beat_ssc.png)
