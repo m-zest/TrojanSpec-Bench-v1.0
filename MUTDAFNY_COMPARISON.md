@@ -1,4 +1,4 @@
-# MutDafny head-to-head — Phase 14 (in progress, STOPPED at Step 1)
+# MutDafny head-to-head — Phase 14 (Steps 1–5 complete, paused before Step 6)
 
 _Started 2026-05-20 against repo HEAD `82cc861` on `main`._
 
@@ -219,3 +219,64 @@ Run via orchestrator `/tmp/mutdafny_batch.py` (4-way `ProcessPoolExecutor`, per-
 Kill-rate histogram on the 312 decidable specs: **179 in [0.4, 0.95), 133 in [0.95, 1.0]**. Not one falls below 0.4 — MutDafny consistently judges our honest Dafny specs as strong. Honest-side FPR for MutDafny is empirically **0/319 = 0.000**, matching the FPR ceiling our paired `mutation_coverage` detector achieves by construction.
 
 Raw results: `/tmp/mutdafny_honest_results.jsonl` (319 lines), summary `/tmp/mutdafny_honest_summary.json`.
+
+---
+
+## Step 5 — MutDafny on 319 TROJAN Dafny specs ✅
+
+Same orchestrator, same isolation, same 5-min per-spec timeout.
+
+| metric | value |
+|---|---:|
+| n_specs | **319** |
+| flagged by MutDafny (kill_rate < 0.4) | **115** → trojan recall = **0.3605** |
+| failures (exit ≠ 0) | 0 |
+| timeouts | 0 |
+| zero-mutant cases | 0 |
+| zero-kill non-degenerate (real signal: every mutant survived) | **114** |
+| wall-time median / p95 / total CPU | **5.3 s / 32.7 s / 58.9 min** |
+| actual wall clock (concurrency 4) | ~16 min |
+
+Trojan side runs ~4× faster than honest side per spec because most trojans are caught on the *first few* generated mutants (vacuity trojans accept every mutation, so each `Verification succeeded` is fast — Z3 has very little to do when the postcondition is `true`).
+
+### Per-attack breakdown of MutDafny recall (Dafny only, 319 trojans)
+
+| attack pattern | n trojans | MutDafny flagged | recall |
+|---|---:|---:|---:|
+| `vacuity` | 116 | **114** | **0.983** |
+| `implementation_leak` | 119 | 1 | 0.008 |
+| `domain_restriction` | 62 | 0 | 0.000 |
+| `predicate_swap` | 22 | 0 | 0.000 |
+| **overall** | **319** | **115** | **0.3605** |
+
+The split is striking: **MutDafny is, mechanistically, almost exclusively a vacuity detector** on our benchmark. When the postcondition is tautological, every witness mutation still satisfies it → kill_rate = 0 → flag. For trojans whose postcondition is still discriminative (implementation_leak's axiom-delegated obligation, domain_restriction's tightened precondition, predicate_swap's single flipped operator), the mutants are killed normally and MutDafny sees no weakness.
+
+### Preview of head-to-head vs our Phase 9 `mutation_coverage` (per-attack recall)
+
+For context — our static `mutation_coverage` detector's per-attack recall on **all** admitted triples (from `data/phase9_metrics_v2.json`, all 3 languages):
+
+| attack pattern | ours (multi-lang) | MutDafny (Dafny only) |
+|---|---:|---:|
+| `vacuity` | 0.000 (0 / 348) | **0.983 (114 / 116)** |
+| `implementation_leak` | 0.488 (184 / 377) | 0.008 (1 / 119) |
+| `domain_restriction` | 0.000 (0 / 187) | 0.000 (0 / 62) |
+| `predicate_swap` | 0.455 (51 / 112) | 0.000 (0 / 22) |
+
+Our detector and MutDafny appear to cover **disjoint** attack patterns. Ours catches the token-stripping cases (impl_leak + pred_swap, where the trojan_spec has fewer constraint tokens than the original). MutDafny catches the tautology case (vacuity, where the spec is too weak to kill any mutant). Neither catches `domain_restriction`, where the silent change is in the precondition, not the postcondition.
+
+This is consistent with the two detectors having **complementary failure modes**: one is paired static comparison, the other is unpaired verification-based stressing. The combined per-attack coverage on Dafny would be 3/4 attack families (only domain_restriction remains uncaught by either).
+
+Raw results: `/tmp/mutdafny_trojan_results.jsonl` (319 lines), summary `/tmp/mutdafny_trojan_summary.json`.
+
+---
+
+## ⏸ Paused before Step 6 (head-to-head + McNemar)
+
+Per your instruction "wait for my approval after step 5", I am stopping here. The Step 6 analysis script is staged at `/tmp/mutdafny_h2h.py`; when you say go I will:
+
+1. Run it against `data/phase9_results_v2.jsonl` (our `mutation_coverage`, Dafny only) + the two MutDafny JSONLs.
+2. Compute the 2×2 contingency on trojan side and honest side, McNemar's exact p-values, and the per-attack head-to-head.
+3. Write the framing to MUTDAFNY_COMPARISON.md per outcomes A/B/C in your original prompt.
+4. Commit `phase 14: head-to-head mutation_coverage vs MutDafny — F1 ours=X.XXX theirs=Y.YYY`.
+
+You can `status`, or `proceed step 6`, or pivot.
