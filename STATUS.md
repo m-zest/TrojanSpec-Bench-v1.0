@@ -12,11 +12,16 @@
 The library, generators, 3 verifier wrappers, 13 crypto-primitive anchors,
 SpecGuard (5 detectors), the Bedrock generation pipeline (Phase 5a/5b), the
 parallel verifier (Phase 7), the SpecGuard evaluation (Phase 9), the seven
-ablations (Phase 10a–i), and the Mathlib case study (Phase 11) are all built,
-tested, and committed/pushed. `pytest` 58 passed / 3 skipped, `ruff` clean.
+ablations (Phase 10a–i), the Mathlib case study (Phase 11), the
+**Phase 12 Gradio demo on HF Spaces**, and the **Phase 13 HF dataset
+release** are all built, tested, and committed/pushed. `pytest` 58
+passed / 3 skipped, `ruff` clean.
 
 The benchmark is shippable from a fresh clone via two preserved tarballs
 (`data/v1_backup_*.tar.gz`, `data/v4_backup_*.tar.gz`) and `reproduce.sh`.
+Public artifacts:
+- 🤗 Dataset: https://huggingface.co/datasets/m-zest/trojanspec-bench
+- 🤗 Demo: https://huggingface.co/spaces/m-zest/specguard-demo
 
 ## Headline numbers
 
@@ -81,6 +86,8 @@ Full results in `docs/phase10_ablations.md` + `docs/phase11_mathlib_case_study.m
 - **10g (adaptive attack, Terekhov-style):** Sonnet rewrote 60 admitted impl_leak trojans without axiom-like markers; 57/60 (95%) survived re-verification. `axiom_audit` recall on the adaptive set **drops 100% → 31.6%**. `mutation_coverage` held up best (28% catch on adaptive). The semantic LLM judge remains the principled fallback when static patterns are evaded.
 - **10h (can SpecGuard beat SSC?):** 5 hypotheses tested (static-only Pareto, SSC on Phase 10g adaptive, cross-language stability, LogReg-over-5-detectors, unanimous-monitor filter). All tied SSC at F1 0.871. The 0.871 ceiling was honest-control seed looseness, not detector quality, under coarse `FAITHFUL/UNFAITHFUL` framing.
 - **10i (atomic-criteria monitor, the actual win):** Decomposing the coarse SSC question into 4 independent atomic Yes/No criteria (completeness, independence, logical-fidelity, consistency) and flagging when ≥ 2 fail breaks the 0.871 ceiling. Full-set **F1 0.967** (P 0.936, R 1.000, **FPR 0.068**); 5-fold CV F1 **0.967 ± 0.005** with K\* = 2 on every fold. Per-language F1 spread shrinks from 0.31 (SSC) to 0.056 (Dafny 0.992 / Lean 0.970 / Verus 0.937); all four attack families clear F1 ≥ 0.937 at 100 % recall. The C3-alone (logical-fidelity) variant is the cheapest detector that beats SSC (F1 **0.975** at 2 calls/side, same cost as SSC). Validates the FormalJudge / Epistemic Ensemble finding in the spec-Trojan setting. Cost: 8192 Sonnet calls, 0 malformed.
+- **12 (HF Space demo):** Interactive Gradio app at https://huggingface.co/spaces/m-zest/specguard-demo runs the Phase 10i atomic-criteria detector against Bedrock Sonnet 4.6, with 3 pre-loaded examples (factorial impl_leak trojan, matching honest, ML-DSA-87 ambiguous honest seed) and an optional static-detector panel. Live end-to-end test confirmed: trojan → 4/4 fail → TROJAN; honest → 0/4 fail → HONEST. AWS Bedrock creds delivered as Space secrets via `HfApi.add_space_secret()`. Source: `scripts/demo_gradio.py`, deployed bundle in `hf_space_build/`.
+- **13 (HF Dataset release):** 1024 admitted triples published at https://huggingface.co/datasets/m-zest/trojanspec-bench as a single parquet `test` split (~80 KB). Paper-grade dataset card includes schema, threat model, per-language admission, per-attack distribution, elicitor-origin counts, detector evaluation summary (Phase 9 + 10i), CC BY 4.0 license, and BibTeX citation. Verified `load_dataset("m-zest/trojanspec-bench")` works publicly. Builder: `scripts/13_hf_dataset_release.py`; card mirrored to `docs/hf_dataset_card.md`.
 - **11 (Mathlib calibration):** 100 honest Mathlib lemmas → `axiom_audit` 0/100 (the post-fix pattern set is selective; no real Mathlib lemma in the sample introduces a new axiom), `monitor_consensus` 23/100 (LLM-judge FPR baseline on real formal mathematics).
 - **Phase 9 cross-contamination null result:** Llama-monitor `miss_rate` on Llama-generated trojans = 0.000; no detectable in-family judging bias.
 
@@ -94,6 +101,8 @@ Full results in `docs/phase10_ablations.md` + `docs/phase11_mathlib_case_study.m
 | Phase 9 results + metrics | `data/phase9_results_v2.jsonl`, `data/phase9_metrics_v2.json` | (committed) |
 | Phase 9 figures | `figures/phase9_*.png` | (committed via `!figures/phase9_*.png` exception) |
 | Phase 10 + 11 data + figures | `data/phase10_*`, `data/phase11_*`, `figures/phase10_*.png` | (committed; `!figures/phase10_*.png` exception in `.gitignore`) |
+| Phase 12 demo source + HF Space bundle | `scripts/demo_gradio.py`, `hf_space_build/` | (committed; Space live at `m-zest/specguard-demo`) |
+| Phase 13 dataset builder + card | `scripts/13_hf_dataset_release.py`, `docs/hf_dataset_card.md` | (committed; dataset live at `m-zest/trojanspec-bench`) |
 | Lean+Mathlib template | `$HOME/lean-project-template` | rebuilt by `reproduce.sh` step 4 (one-time ~20-40 min) |
 
 ## What is NOT in this repo
@@ -114,3 +123,10 @@ Full results in `docs/phase10_ablations.md` + `docs/phase11_mathlib_case_study.m
 - `scripts/06_phase9_eval.py` + `_phase9_axiom_replay.py` + `_phase9_report.py` — Phase 9 pipeline
 - `scripts/10[a-g]_*.py`, `scripts/11_mathlib_case_study.py` — Phase 10 & 11
 - `scripts/run_phase*.sh` — orchestrators with per-step `gitci`+push
+- `scripts/demo_gradio.py` — Phase 12 Gradio app (atomic-criteria K=2-of-4 over Bedrock Sonnet 4.6); deployed to `m-zest/specguard-demo`
+- `scripts/13_hf_dataset_release.py` — Phase 13 dataset builder + uploader; emits parquet + dataset card
+
+## Remaining work (laptop only — no server required)
+
+- **Phase 14** — disclosure email drafts to Cryspen + Symbolic Software referencing the libcrux Hax `SampleNTT` axiom gap (eprint 2026/670) and the libcrux ML-KEM `d ≤ 1` domain restriction (eprint 2026/192). Both anchor real-world implementation_leak / domain_restriction patterns in the benchmark.
+- **Phase 15** — paper writing (~4–8 hours). All numbers, figures, methodology, novelty claims, and ablation tables already in `docs/` and `HANDOFF.md`.

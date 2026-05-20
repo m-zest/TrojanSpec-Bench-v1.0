@@ -10,6 +10,8 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776ab.svg)](https://www.python.org/)
 [![Admitted](https://img.shields.io/badge/v4_admitted-1024-7c3aed.svg)](#headline-numbers)
 [![Verifiers](https://img.shields.io/badge/verifiers-Dafny%20%7C%20Lean%204%20%7C%20Verus-059669.svg)](#)
+[![HF Dataset](https://img.shields.io/badge/🤗_dataset-m--zest%2Ftrojanspec--bench-ffd21e.svg)](https://huggingface.co/datasets/m-zest/trojanspec-bench)
+[![HF Space](https://img.shields.io/badge/🤗_demo-specguard--demo-ffd21e.svg)](https://huggingface.co/spaces/m-zest/specguard-demo)
 
 *When the specification itself is the attack surface.*
 
@@ -48,6 +50,8 @@ harness**, and the companion defender **SpecGuard** (5 detectors, evaluated in P
 | 9 SpecGuard | `monitor_consensus` **F1 = 0.871** (R 1.000, P 0.771, FPR 0.297); `axiom_audit` **F1 = 0.492** after the multi-language + preamble fix (100% recall on `implementation_leak`) | `data/phase9_metrics_v2.json`, [`docs/phase9_detector_evaluation.md`](docs/phase9_detector_evaluation.md) |
 | 10 ablations | **Atomic-criteria monitor (Phase 10i) breaks the 0.871 ceiling: K = 2 of 4 → F1 0.967 (P 0.936, R 1.000, FPR 0.068; 5-fold CV F1 0.967 ± 0.005); C3-alone variant F1 0.975 at 2 calls/side**; 1 monitor = 3 monitors in F1 (0.900); SSC baseline = monitor_consensus (F1 0.871 at 2/3 the cost); adaptive-attack drops `axiom_audit` recall 100% → 31.6%; ensemble grid → `monitor_consensus` alone is F1-optimal; threshold transfers perfectly across languages; Haiku trojans easier to detect | `data/phase10_*`, [`docs/phase10_ablations.md`](docs/phase10_ablations.md), [`docs/phase10i_atomic_monitor.md`](docs/phase10i_atomic_monitor.md) |
 | 11 Mathlib case study | 100 honest Mathlib lemmas: `axiom_audit` 0/100, `monitor_consensus` 23/100 (LLM-judge FPR on real formal math) | `data/phase11_*`, [`docs/phase11_mathlib_case_study.md`](docs/phase11_mathlib_case_study.md) |
+| 12 demo | Interactive Gradio app on HF Spaces running the Phase 10i atomic-criteria detector against Bedrock Sonnet 4.6 | [`scripts/demo_gradio.py`](scripts/demo_gradio.py), [🤗 `m-zest/specguard-demo`](https://huggingface.co/spaces/m-zest/specguard-demo) |
+| 13 dataset | 1024 admitted triples as parquet, paper-grade dataset card, CC BY 4.0 | [`scripts/13_hf_dataset_release.py`](scripts/13_hf_dataset_release.py), [`docs/hf_dataset_card.md`](docs/hf_dataset_card.md), [🤗 `m-zest/trojanspec-bench`](https://huggingface.co/datasets/m-zest/trojanspec-bench) |
 
 Quickstart in [§ Reproduce](#reproduce). Full env vars / costs / runtimes:
 **[`docs/REPRODUCIBILITY.md`](docs/REPRODUCIBILITY.md)**. To pick this
