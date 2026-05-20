@@ -100,7 +100,7 @@ operate on stored verifier verdicts).
 
 Orchestrators:
 
-- `scripts/run_phaseA4_parallel.sh` — Phase 7 (parallel resume, gate ≥50%, final report)
+- `scripts/legacy/run_phaseA4_parallel.sh` — Phase 7 (parallel resume, gate ≥50%, final report; archived under `scripts/legacy/` in v0.4.0)
 - `scripts/run_phase9.sh` — Phase 9 eval (1024+1024, ProcessPool of monitors)
 - `scripts/run_phase10_phase11.sh` — sequential 10b → 10c → 10f → 10g → 11
 
