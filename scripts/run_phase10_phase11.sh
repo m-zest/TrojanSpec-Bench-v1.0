@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # Phase 10 (LLM-heavy 10b/c/f/g/h/i) + Phase 11 (Mathlib case study).
-# Sequential, detached, gitci+push after each stage. Logs /tmp/phase10_11.log.
+#
+# This orchestrator runs the Bedrock-billed Phase 10/11 stages
+# sequentially with per-step commits. It does NOT push to remote.
+# Run `git push origin main` manually after reviewing the commits.
+#
 # 10a/10d/10e already committed (post-hoc, no LLM cost).
 #
 # Stages: 10b temp, 10c monitor-count, 10f SSC, 10g adaptive,
@@ -13,11 +17,13 @@ export PATH="$PATH:$HOME/.dotnet/tools:$HOME/.elan/bin"
 export TROJANSPEC_LEAN_TEMPLATE="$HOME/lean-project-template"
 PY=./venv/bin/python
 BR="main"
-gitci(){ git -c user.name="Mohammad Zeeshan" -c user.email="hdglit@inf.elte.hu" \
-  add -A ":!data/triples_v1" ":!data/triples_xfamily_v1" ":!data/*.tar.gz"; \
-  git -c user.name="Mohammad Zeeshan" -c user.email="hdglit@inf.elte.hu" \
-  commit --author="Mohammad Zeeshan <hdglit@inf.elte.hu>" -q -m "$1" 2>/dev/null \
-  && git push origin "$BR" 2>&1 | tail -1 || echo "(nothing to commit: $1)"; }
+gitci() {
+  local msg="$1"
+  git add -A
+  if ! git diff --cached --quiet; then
+    git commit -m "$msg" || true
+  fi
+}
 step(){ echo "=== $1 $(date -u +%H:%M:%S) ==="; }
 
 step "10b monitor temperature ablation (200 triples x 4 temps, Sonnet)"
