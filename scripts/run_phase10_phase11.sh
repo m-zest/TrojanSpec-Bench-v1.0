@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
-# Phase 10 (LLM-heavy 10b/c/f/g) + Phase 11 (Mathlib case study).
+# Phase 10 (LLM-heavy 10b/c/f/g/h/i) + Phase 11 (Mathlib case study).
 # Sequential, detached, gitci+push after each stage. Logs /tmp/phase10_11.log.
 # 10a/10d/10e already committed (post-hoc, no LLM cost).
+#
+# Stages: 10b temp, 10c monitor-count, 10f SSC, 10g adaptive,
+#         10h beat-SSC (5 hypotheses), 10i atomic monitor (the win),
+#         11 Mathlib.
+# Total: ~22k Bedrock calls, ~$11, ~2 h wall clock at concurrency 12.
 set -uo pipefail
-cd /home/ubuntu/TrojanSpec-Bench-v1.0
+cd "$(dirname "$0")/.."
 export PATH="$PATH:$HOME/.dotnet/tools:$HOME/.elan/bin"
 export TROJANSPEC_LEAN_TEMPLATE="$HOME/lean-project-template"
 PY=./venv/bin/python
@@ -30,6 +35,14 @@ gitci "phase10f: SSC baseline (single-model 2-question consistency)"
 step "10g adaptive attack stress test (60 impl_leak triples)"
 $PY scripts/10g_adaptive_attack.py --sample 60
 gitci "phase10g: adaptive attack (banned-marker evasion, 60 impl_leak)"
+
+step "10h beat-SSC (5 hypotheses; needs 10f + 10g jsonl from above)"
+$PY scripts/10h_beat_ssc.py
+gitci "phase10h: can SpecGuard beat SSC? (5 hypotheses tested, honest verdict)"
+
+step "10i atomic-criteria monitor (8192 Sonnet calls, ~30 min at concurrency 12)"
+$PY scripts/10i_atomic_monitor.py --concurrency 12
+gitci "phase10i: atomic-criteria monitor breaks the 0.871 ceiling (F1 0.967)"
 
 step "11 Mathlib case study (100 theorems)"
 $PY scripts/11_mathlib_case_study.py --target 100
