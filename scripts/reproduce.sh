@@ -88,11 +88,24 @@ say "7. Phase 10 post-hoc ablations (zero LLM cost; safe to re-run)"
 $PY scripts/10a_elicitor_sweep.py
 $PY scripts/10d_ensemble_grid.py
 $PY scripts/10e_cross_language.py
+$PY scripts/10h_beat_ssc.py 2>/dev/null || echo "(10h needs Phase 10f jsonl + Phase 10g jsonl; skipping)"
 
-say "8. Phase 10 LLM-heavy + Phase 11 Mathlib (Bedrock-billed, ~1-2h)"
+say "8. Phase 10i atomic monitor (regenerate JSON + figure if JSONL present)"
+if [ -s data/phase10_10i_atomic_results.jsonl ]; then
+  $PY scripts/10i_atomic_monitor.py --analyze-only
+  echo "(re-aggregated Phase 10i from committed JSONL: F1=$($PY -c 'import json;print(json.load(open(\"data/phase10_10i_atomic.json\"))[\"best_rule_full\"][\"f1\"])'))"
+else
+  echo "(Phase 10i JSONL not present; trigger full 8192-call run via run_phase10_phase11.sh)"
+fi
+
+say "9. Phase 10 LLM-heavy + Phase 11 Mathlib (Bedrock-billed, ~1-2h, ~$11)"
 echo "Not auto-run. Trigger explicitly:"
 echo "  bash scripts/run_phase10_phase11.sh   # detached; logs /tmp/phase10_11.log"
 echo "  tail -f /tmp/phase10_11.log           # markers: PHASE10_11_SUCCESS/DONE"
+echo
+echo "Stages in that batch: 10b temp, 10c monitor-count, 10f SSC, 10g adaptive,"
+echo "                      10h beat-SSC, 10i atomic monitor, 11 Mathlib."
 
 say "DONE - read docs/REPRODUCIBILITY.md for env vars, costs, troubleshooting"
-echo "Headline numbers: docs/phase5_to_phase8_complete.md, docs/phase9_detector_evaluation.md"
+echo "Headline numbers: README.md, STATUS.md, HANDOFF.md."
+echo "Phase 10i atomic monitor (the win): docs/phase10i_atomic_monitor.md."

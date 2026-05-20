@@ -50,7 +50,10 @@ harness**, and the companion defender **SpecGuard** (5 detectors, evaluated in P
 | 11 Mathlib case study | 100 honest Mathlib lemmas: `axiom_audit` 0/100, `monitor_consensus` 23/100 (LLM-judge FPR on real formal math) | `data/phase11_*`, [`docs/phase11_mathlib_case_study.md`](docs/phase11_mathlib_case_study.md) |
 
 Quickstart in [§ Reproduce](#reproduce). Full env vars / costs / runtimes:
-**[`docs/REPRODUCIBILITY.md`](docs/REPRODUCIBILITY.md)**.
+**[`docs/REPRODUCIBILITY.md`](docs/REPRODUCIBILITY.md)**. To pick this
+project back up on a fresh server in one file, read
+**[`HANDOFF.md`](HANDOFF.md)** — taxonomy, methodology, novelty, baselines,
+all results, and resume commands in one place.
 
 ---
 
