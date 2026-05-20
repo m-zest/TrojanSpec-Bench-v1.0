@@ -1,12 +1,14 @@
-"""SpecGuard static detectors (vendored for the HF Space demo).
+"""SpecGuard detectors (vendored for the HF Space demo).
 
 The full library is at https://github.com/m-zest/TrojanSpec-Bench-v1.0.
 This subset omits MonitorConsensusDetector, which depends on the
-trojanspec LLM-client infrastructure; the Space implements the
-atomic-criteria K=2-of-4 monitor (Phase 10i, F1=0.967) directly in
-app.py instead.
+trojanspec LLM-client infrastructure. As of v0.4.0 the atomic-criteria
+K=2-of-4 monitor (Phase 10i, F1=0.967) is available as a library module
+here too; the HF Space's ``app.py`` continues to use its own boto3
+client by passing a ``client_factory`` to ``AtomicMonitorDetector``.
 """
 
+from trojanspec.specguard.atomic_monitor import AtomicMonitorDetector
 from trojanspec.specguard.axiom_audit import AxiomAuditDetector
 from trojanspec.specguard.base import (
     Detector,
@@ -45,7 +47,8 @@ def scan_static(triple: dict) -> list[dict]:
 
 
 __all__ = [
-    "ALL_DETECTORS", "AxiomAuditDetector", "Detector", "DetectorResult",
-    "GhostLeakageDetector", "MutationCoverageDetector", "VacuityDetector",
+    "ALL_DETECTORS", "AtomicMonitorDetector", "AxiomAuditDetector",
+    "Detector", "DetectorResult", "GhostLeakageDetector",
+    "MutationCoverageDetector", "VacuityDetector",
     "Verdict", "combined_risk", "scan_static",
 ]

@@ -1,11 +1,19 @@
-"""SpecGuard: five detectors that flag adversarially elicited specs.
+"""SpecGuard: six detectors that flag adversarially elicited specs.
 
 A detector consumes a triple-like mapping (``nl_requirement``,
 ``original_spec``, ``trojan_spec``, ``language``, ...) and returns a
 :class:`DetectorResult`. :func:`scan_triple` runs all detectors and combines
 them into an overall verdict plus a 0-1 risk score.
+
+Five static / coarse-monitor detectors are evaluated in Phase 9
+(``vacuity``, ``mutation_coverage``, ``ghost_leakage``, ``axiom_audit``,
+``monitor_consensus``). The ``atomic_monitor`` (Phase 10i) is the
+decomposed-judge K=2-of-4 detector that breaks the 0.871 SSC ceiling;
+it is not part of the Phase 9 baseline set and is opt-in via
+``include_atomic`` in :func:`scan_triple`.
 """
 
+from trojanspec.specguard.atomic_monitor import AtomicMonitorDetector
 from trojanspec.specguard.axiom_audit import AxiomAuditDetector
 from trojanspec.specguard.base import (
     Detector,
@@ -59,6 +67,7 @@ def scan_triple(triple: dict, *, include_monitor: bool = True) -> dict:
 
 __all__ = [
     "ALL_DETECTORS",
+    "AtomicMonitorDetector",
     "AxiomAuditDetector",
     "Detector",
     "DetectorResult",
