@@ -1,0 +1,14 @@
+{
+  "sampled": 60,
+  "model_followed_constraint": 60,
+  "admitted_after_reverify": 57,
+  "admitted_pct": 0.95,
+  "static_detector_catch_on_admitted": {
+    "vacuity": 3,
+    "mutation_coverage": 16,
+    "ghost_leakage": 0,
+    "axiom_audit": 18
+  },
+  "axiom_audit_recall_on_adaptive": 0.3158,
+  "note": "Baseline (Phase 9): axiom_audit caught 377/377 (100%) of admitted implementation_leak triples. This adaptive run measures whether the same attack semantically expressed without axiom-like markers still slips past axiom_audit while remaining a real weakening."
+}
