@@ -1,0 +1,12 @@
+{
+  "n": 1024,
+  "tp": 1024,
+  "fp": 304,
+  "tn": 720,
+  "fn": 0,
+  "precision": 0.7711,
+  "recall": 1.0,
+  "f1": 0.8707,
+  "fpr": 0.2969,
+  "baseline_note": "SSC asks one model two paraphrased questions; flag = disagreement or both UNFAITHFUL."
+}

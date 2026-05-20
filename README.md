@@ -46,8 +46,8 @@ harness**, and the companion defender **SpecGuard** (5 detectors, evaluated in P
 | 5a / 5b generation | 1500 + 298 triples (Bedrock Sonnet 4.6 main; Haiku 4.5 + Llama-3.3 70B ablation) | restore `data/v4_backup_*.tar.gz` → `data/triples/`, `data/triples_xfamily/` |
 | 7 verifier admission | **57.0%** overall (1024 / 1798); **Dafny+Lean 61.3%** (gate ≥50% cleared) | `data/phase7_admission_report.json` |
 | 9 SpecGuard | `monitor_consensus` **F1 = 0.871** (R 1.000, P 0.771, FPR 0.297); `axiom_audit` **F1 = 0.492** after the multi-language + preamble fix (100% recall on `implementation_leak`) | `data/phase9_metrics_v2.json`, [`docs/phase9_detector_evaluation.md`](docs/phase9_detector_evaluation.md) |
-| 10 ablations | elicitor sweep, monitor temp / count, SSC baseline, adaptive-attack stress, detector ensemble grid (`monitor_consensus` alone is F1-optimal), cross-language threshold transfer | `data/phase10_*` |
-| 11 Mathlib case study | 100 honest Mathlib lemmas through `axiom_audit` + `monitor_consensus` (real-formal-mathematics FPR calibration) | `data/phase11_*` |
+| 10 ablations | **1 monitor = 3 monitors in F1 (0.900); SSC baseline = monitor_consensus (F1 0.871 at 2/3 the cost); adaptive-attack drops `axiom_audit` recall 100% → 31.6%**; ensemble grid → `monitor_consensus` alone is F1-optimal; threshold transfers perfectly across languages; Haiku trojans easier to detect | `data/phase10_*`, [`docs/phase10_ablations.md`](docs/phase10_ablations.md) |
+| 11 Mathlib case study | 100 honest Mathlib lemmas: `axiom_audit` 0/100, `monitor_consensus` 23/100 (LLM-judge FPR on real formal math) | `data/phase11_*`, [`docs/phase11_mathlib_case_study.md`](docs/phase11_mathlib_case_study.md) |
 
 Quickstart in [§ Reproduce](#reproduce). Full env vars / costs / runtimes:
 **[`docs/REPRODUCIBILITY.md`](docs/REPRODUCIBILITY.md)**.
