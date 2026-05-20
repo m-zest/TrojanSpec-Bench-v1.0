@@ -102,10 +102,11 @@ changes. The legacy 90 Fireworks `gpt-oss-120b` triples remain preserved
 under `data/triples_v1/`; the v4 main benchmark is regenerated wholesale by
 Claude Sonnet 4.6. The `elicitor_model` field distinguishes provenance.
 
-- **Cross-family ablation (Phase 5b): 300 triples from two additional Bedrock
+- **Cross-family ablation (Phase 5b): 298 triples from two additional Bedrock
   families, `bedrock-claude-haiku` (Anthropic Claude Haiku 4.5) +
   `bedrock-llama-70b` (Meta Llama-3.3-70B) (50/50)**, written to a separate
-  `data/triples_xfamily/` tree (100 per language, 75 per attack pattern).
+  `data/triples_xfamily/` tree (100 per language, 75 per attack pattern
+  except predicate_swap (73)).
   The two distinct training origins (Anthropic + Meta) show the four trojan
   patterns **transfer across generator families**, not to maximise yield.
 - **Monitor consensus (Phases 8 and 10)** uses the three AWS Bedrock families

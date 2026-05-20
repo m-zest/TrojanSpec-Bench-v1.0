@@ -86,7 +86,7 @@ operate on stored verifier verdicts).
 | Phase | Script(s) | Inputs | Outputs | Cost |
 | :-: | :-- | :-- | :-- | :-- |
 | 5a | `scripts/02_generate_triples.py` | crypto anchors, NL seeds | `data/triples/**/*.json` (1500) | Bedrock Sonnet |
-| 5b | `scripts/02_generate_triples.py --xfamily` | anchors | `data/triples_xfamily/**/*.json` (300) | Bedrock Haiku + Llama |
+| 5b | `scripts/02_generate_triples.py --xfamily` | anchors | `data/triples_xfamily/**/*.json` (298) | Bedrock Haiku + Llama |
 | 7 | `scripts/04_validate_witnesses.py --concurrency 4 --skip-already-validated` | both data dirs | `data/phase7_admission_report.json` + stamped JSONs | verifier-only (no LLM) |
 | 9 | `scripts/06_phase9_eval.py` + `scripts/_phase9_axiom_replay.py` + `scripts/_phase9_report.py` | admitted triples | `data/phase9_results_v2.jsonl`, `data/phase9_metrics_v2.json`, `docs/phase9_detector_evaluation.md`, `figures/phase9_*.png` | Bedrock × 3 monitors × 1024 trojan + 1024 honest |
 | 10a | `scripts/10a_elicitor_sweep.py` | phase9 jsonl | `data/phase10_10a_*.json`, figure | **zero LLM** |

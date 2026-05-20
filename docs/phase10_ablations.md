@@ -158,7 +158,7 @@ about ⅙ of SSC's 0.31 spread. All four attack families clear F1 ≥ 0.937
 at 100 % recall.
 
 **Verdict — WIN.** The atomic decomposition beats SSC on the same data
-with the same model: +0.096 F1 and a 4.4× FPR reduction (0.297 → 0.068).
+with the same model: +0.096 F1 and a 4.3× FPR reduction (0.297 → 0.068).
 The C3-alone Pareto point (F1 0.975 at 2 calls/side, equal cost to SSC)
 is the cheapest detector that breaks the 0.871 ceiling.
 

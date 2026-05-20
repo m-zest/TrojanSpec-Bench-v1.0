@@ -7,7 +7,7 @@ independent atomic Yes/No criteria asked to the *same* Sonnet judge, then
 flag a spec whenever any **K = 2 of 4** criteria fail. The atomic monitor
 reaches **F1 = 0.967** on 1024 admitted triples (P 0.936, R 1.000,
 FPR 0.068) versus **SSC F1 = 0.871** (P 0.771, R 1.000, FPR 0.297) — a
-**+0.096 F1 lift and a 4.4× FPR reduction** with the same model, same
+**+0.096 F1 lift and a 4.3× FPR reduction** with the same model, same
 data, and an extra 2 calls per side. 5-fold cross-validated F1 is
 **0.967 ± 0.005** with K\* = 2 picked on every fold.
 
@@ -158,7 +158,7 @@ intersection of "called malicious by ≥ 2 questions" cleans up SSC's
 
 The atomic monitor is the first detector in the SpecGuard family to
 break the 0.871 ceiling. It pays 2 extra LLM calls/side (vs SSC) for
-+9.6 F1 points and a 4.4× FPR reduction; the C3-alone variant pays the
++9.6 F1 points and a 4.3× FPR reduction; the C3-alone variant pays the
 same as SSC and gets +10.4 F1 points.
 
 ## Verdict

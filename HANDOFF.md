@@ -160,7 +160,7 @@ MALICIOUS forces overall MALICIOUS. AUC 0.793, paired Δrisk +0.440.
 | Comparison | Our number | Baseline | Δ |
 |---|---|---|---|
 | Atomic K=2-of-4 vs **SSC F1** | 0.967 | 0.871 | **+0.096** |
-| Atomic K=2-of-4 vs **SSC FPR** | 0.068 | 0.297 | **−0.229 (4.4× lower)** |
+| Atomic K=2-of-4 vs **SSC FPR** | 0.068 | 0.297 | **−0.229 (4.3× lower)** |
 | Atomic C3-alone vs SSC (same cost) | 0.975 | 0.871 | **+0.104** |
 | Per-language F1 spread (atomic vs SSC) | 0.056 | 0.31 | **6× tighter** |
 | `axiom_audit` post-preamble-fix vs pre-fix | F1 0.492, R 1.000 on impl_leak | F1 0.000 | recovered from 0 |
@@ -187,7 +187,7 @@ MALICIOUS forces overall MALICIOUS. AUC 0.793, paired Δrisk +0.440.
    four independent atomic Yes/No criteria (completeness, independence,
    logical-fidelity, consistency) asked to the same Sonnet judge as SSC,
    combined as K=2-of-4. Lifts F1 from 0.871 → 0.967 (+0.096 absolute)
-   and drops FPR from 0.297 → 0.068 (4.4×) with no recall cost. C3 alone
+   and drops FPR from 0.297 → 0.068 (4.3×) with no recall cost. C3 alone
    is the cheapest detector that breaks the ceiling.
 5. **Adaptive-attack stress test (Phase 10g)** — quantifies the
    fragility of static detectors: `axiom_audit` recall collapses
