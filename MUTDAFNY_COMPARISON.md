@@ -197,3 +197,25 @@ Kill rate = 34/36 = **0.944** → above the 0.4 threshold, so `mutdafny_flag = F
 | 5-pair sanity check under MutDafny's Dafny 4.10.1 fork | **✅ 5/5 honest verify, 5/5 trojan verify (under each side's own spec)** |
 
 Sanity-sample triple_ids (seed=2026): `0cc1ffb8…`, `57942acf…`, `3c01ae25…`, `7ca7d90d…`, `b6f2796e…`. Every one passes both honest and trojan verification under their Dafny 4.10.1 — the 4.10/4.11 delta does **not** cause incompatibility on our admitted set.
+
+---
+
+## Step 4 — MutDafny on 319 HONEST Dafny specs ✅
+
+Run via orchestrator `/tmp/mutdafny_batch.py` (4-way `ProcessPoolExecutor`, per-spec isolated tmpdir with symlinks to `dafny/` and `mutdafny/`, 5-min per-spec timeout).
+
+| metric | value |
+|---|---:|
+| n_specs | **319** |
+| flagged by MutDafny (kill_rate < 0.4) | **0** → honest-side **FPR = 0.0000** |
+| failures (exit ≠ 0) | 0 |
+| timeouts | 0 |
+| zero-mutant cases | 5 (1.6 %, within the 10 % red-line) |
+| zero-kill non-degenerate | 0 |
+| zero-kill undecidable (all mutants invalid) | 2 (correctly suppressed from flag count) |
+| wall-time median / p95 / total (CPU sum across 4 workers) | **23.4 s / 27.6 s / 131.5 min** |
+| actual wall clock (concurrency 4) | ~33 min |
+
+Kill-rate histogram on the 312 decidable specs: **179 in [0.4, 0.95), 133 in [0.95, 1.0]**. Not one falls below 0.4 — MutDafny consistently judges our honest Dafny specs as strong. Honest-side FPR for MutDafny is empirically **0/319 = 0.000**, matching the FPR ceiling our paired `mutation_coverage` detector achieves by construction.
+
+Raw results: `/tmp/mutdafny_honest_results.jsonl` (319 lines), summary `/tmp/mutdafny_honest_summary.json`.
