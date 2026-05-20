@@ -20,7 +20,7 @@ from pathlib import Path
 
 
 def _load_jsonl(p: Path) -> list[dict]:
-    return [json.loads(l) for l in p.read_text().splitlines() if l.strip()]
+    return [json.loads(line) for line in p.read_text().splitlines() if line.strip()]
 
 
 def _f1pr(tp: int, fp: int, tn: int, fn: int) -> dict:

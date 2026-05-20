@@ -1,8 +1,8 @@
-# TrojanSpec-Bench — Final Handoff (v0.4.0)
+# TrojanSpec-Bench — Final Handoff (v0.4.1)
 
 One-file orientation for picking this project back up on a fresh server.
 Everything below — code, data, figures, docs — is in this repo at tag
-**`v0.4.0`** (commit `e3f6c36` on branch `main`). Two preserved tarballs
+**`v0.4.1`** on branch `main`. Two preserved tarballs
 (`data/v?_backup_*.tar.gz`) make the run reproducible from a fresh
 clone.
 
@@ -14,7 +14,7 @@ clone.
 # 1. Clone + checkout the published state
 git clone https://github.com/m-zest/TrojanSpec-Bench-v1.0.git
 cd TrojanSpec-Bench-v1.0
-git checkout v0.4.0           # or: git checkout main
+git checkout v0.4.1           # or: git checkout main
 
 # 2. Credentials (Bedrock — Anthropic Sonnet 4.6 + Haiku 4.5 + Meta Llama-3.3 70B)
 cp .env.example .env
@@ -77,6 +77,7 @@ vacuity 348, domain_restriction 187, predicate_swap 112.
 | **libcrux ML-KEM decompression bug** (eprint 2026/192) | real-world `domain_restriction` precedent. |
 | **Beer et al. 2001** (vacuity detection) | established that vacuous postconditions are a real specification-quality risk. |
 | **Mathlib** (Lean 4) | 100-theorem honest sample for `axiom_audit` / `monitor_consensus` FPR calibration (Phase 11). |
+| **MutDafny** (Amaral, Mendes, Campos — arXiv:2511.15403, ICSE 2026) | Independently developed verifier-based mutation tester for Dafny specifications. Phase 14 head-to-head on the 319 admitted Dafny triples. |
 
 ---
 
@@ -152,6 +153,7 @@ MALICIOUS forces overall MALICIOUS. AUC 0.793, paired Δrisk +0.440.
 | 11 | What's the FPR on real formal mathematics? | 100 honest Mathlib lemmas → `axiom_audit` **0/100**, `monitor_consensus` 23/100 (LLM-judge FPR baseline) | `docs/phase11_mathlib_case_study.md` |
 | 12 | Can someone interactively try the detector? | Live Gradio app at **[`m-zest/specguard-demo`](https://huggingface.co/spaces/m-zest/specguard-demo)** running Phase 10i atomic-criteria K=2-of-4 against Bedrock Sonnet 4.6; 3 pre-loaded examples; optional static-detector panel | `scripts/demo_gradio.py`, `hf_space_build/` |
 | 13 | Is the dataset publicly available? | **[`m-zest/trojanspec-bench`](https://huggingface.co/datasets/m-zest/trojanspec-bench)** — 1024 admitted triples, parquet, paper-grade dataset card, CC BY 4.0 | `scripts/13_hf_dataset_release.py`, `docs/hf_dataset_card.md` |
+| **14** | **How does our static `mutation_coverage` compare to the published MutDafny tool (Amaral et al., ICSE 2026)?** | On the 319 admitted Dafny triples: ours F1 **0.540** vs MutDafny F1 **0.530** (tie, McNemar p=0.895). Per-attack: ours catches `implementation_leak` (99.2 %, Dafny), MutDafny catches `vacuity` (98.3 %), neither catches `domain_restriction` or `predicate_swap`. **`atomic_monitor` K=2 strictly dominates MutDafny** (F1 **0.992**, 100 % recall on all 4 attacks; McNemar p<10⁻⁶¹). Mutation-based detection has a structural ceiling on this benchmark. | `docs/mutdafny_comparison.md`, `MUTDAFNY_COMPARISON.md` |
 
 ---
 
@@ -166,6 +168,8 @@ MALICIOUS forces overall MALICIOUS. AUC 0.793, paired Δrisk +0.440.
 | `axiom_audit` post-preamble-fix vs pre-fix | F1 0.492, R 1.000 on impl_leak | F1 0.000 | recovered from 0 |
 | Phase 7 admission gate | 57.0% overall, Dafny+Lean 61.3% | ≥50% gate | cleared |
 | Phase 10g adaptive `axiom_audit` recall | 31.6% | 100% (Phase 9) | **−68.4 pp** (negative result — static patterns evaded) |
+| Phase 14 ours vs **MutDafny** (Dafny F1) | 0.540 | 0.530 | +0.010 (tie, McNemar p=0.895; complementary per-attack coverage) |
+| Phase 14 atomic K=2 vs **MutDafny** (Dafny F1) | 0.992 | 0.530 | **+0.462** (atomic strictly subsumes MutDafny on trojan side; McNemar p<10⁻⁶¹) |
 
 ---
 
@@ -379,6 +383,5 @@ inference profiles.)
 > Epistemic Ensemble decomposition principle in the spec-Trojan setting
 > at no recall cost.
 
-Tag: **`v0.4.0`** · Commit: **`e3f6c36`** · Branch:
-`main` · Origin:
+Tag: **`v0.4.1`** · Branch: `main` · Origin:
 `https://github.com/m-zest/TrojanSpec-Bench-v1.0`.

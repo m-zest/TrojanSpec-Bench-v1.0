@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "trojanspec"
-version = "0.4.0"
+version = "0.4.1"
 description = "TrojanSpec-Bench: an adversarial-specification-elicitation benchmark for AI-assisted formal verification (Dafny, Lean 4, Verus)."
 readme = "README.md"
 requires-python = ">=3.10"
