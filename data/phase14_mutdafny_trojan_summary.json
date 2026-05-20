@@ -1,0 +1,11 @@
+{
+  "side": "trojan",
+  "n_specs": 319,
+  "n_flagged_mutdafny": 115,
+  "n_failed": 0,
+  "n_timeout": 0,
+  "n_zero_mutants": 0,
+  "total_wall_sec": 3533.6,
+  "threshold": 0.4,
+  "per_spec_timeout": 300
+}

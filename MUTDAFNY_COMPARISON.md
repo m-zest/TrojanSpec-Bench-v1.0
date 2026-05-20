@@ -1,6 +1,8 @@
-# MutDafny head-to-head — Phase 14 (Steps 1–5 complete, paused before Step 6)
+# MutDafny head-to-head — Phase 14 (all 8 steps complete)
 
-_Started 2026-05-20 against repo HEAD `82cc861` on `main`._
+_Started 2026-05-20, finalized 2026-05-20 against repo HEAD `82cc861` on `main`._
+
+**TL;DR.** On the 319 admitted Dafny triples, MutDafny (Amaral et al., ICSE 2026, [arXiv:2511.15403](https://arxiv.org/abs/2511.15403)) achieves **F1 = 0.530** (recall 36 %, FPR 0/319). Our static `mutation_coverage` achieves F1 = 0.540 (statistical tie, McNemar p = 0.895). The Phase-10i **`atomic_monitor` K=2-of-4 achieves F1 = 0.992** (recall 1.000, FPR 5/319), strictly dominating MutDafny (every MutDafny flag is also an atomic flag; atomic catches 204 more, McNemar p < 10⁻⁶¹). Mutation-based detection (ours or MutDafny) has a structural ceiling: it catches vacuity OR implementation_leak but not both, and is blind to `domain_restriction` and `predicate_swap`. The decomposed-judge approach extends coverage from 2 of 4 attack classes to 4 of 4.
 
 ## Step 1 — Locate MutDafny artifact
 
@@ -270,13 +272,136 @@ Raw results: `/tmp/mutdafny_trojan_results.jsonl` (319 lines), summary `/tmp/mut
 
 ---
 
-## ⏸ Paused before Step 6 (head-to-head + McNemar)
+## Step 6 — Head-to-head: ours vs MutDafny vs `atomic_monitor` (Dafny subset) ✅
 
-Per your instruction "wait for my approval after step 5", I am stopping here. The Step 6 analysis script is staged at `/tmp/mutdafny_h2h.py`; when you say go I will:
+Three detectors, evaluated on the same 319 admitted Dafny trojans + the same 319 honest controls = **638 instances per detector**.
 
-1. Run it against `data/phase9_results_v2.jsonl` (our `mutation_coverage`, Dafny only) + the two MutDafny JSONLs.
-2. Compute the 2×2 contingency on trojan side and honest side, McNemar's exact p-values, and the per-attack head-to-head.
-3. Write the framing to MUTDAFNY_COMPARISON.md per outcomes A/B/C in your original prompt.
-4. Commit `phase 14: head-to-head mutation_coverage vs MutDafny — F1 ours=X.XXX theirs=Y.YYY`.
+### Three-detector headline
 
-You can `status`, or `proceed step 6`, or pivot.
+| detector | TP | FP | TN | FN | P | R | F1 | FPR |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| **ours** `mutation_coverage` (paired, static) | 118 | 0 | 319 | 201 | **1.000** | 0.370 | 0.540 | 0.000 |
+| **MutDafny** (Amaral et al.) | 115 | 0 | 319 | 204 | **1.000** | 0.361 | 0.530 | 0.000 |
+| **`atomic_monitor` K=2-of-4** (Phase 10i) | **319** | 5 | 314 | **0** | 0.985 | **1.000** | **0.992** | 0.016 |
+
+- ΔF1 (atomic − MutDafny) = **+0.4622**
+- ΔF1 (ours − MutDafny) = **+0.0100** (statistical tie)
+
+### Per-attack recall — the key result
+
+| attack pattern | n trojans | **ours** | **MutDafny** | **atomic K=2** |
+|---|---:|---:|---:|---:|
+| `vacuity`              | 116 | 0.000 (0/116)   | **0.983** (114/116) | **1.000** (116/116) |
+| `implementation_leak`  | 119 | **0.992** (118/119) | 0.008 (1/119)    | **1.000** (119/119) |
+| `domain_restriction`   |  62 | 0.000 (0/62)    | 0.000 (0/62)        | **1.000** (62/62)   |
+| `predicate_swap`       |  22 | 0.000 (0/22)    | 0.000 (0/22)        | **1.000** (22/22)   |
+| **overall**            | 319 | 0.370           | 0.361               | **1.000**           |
+
+The "MutDafny is a vacuity detector" pattern is visible at a glance: 98.3 % recall on vacuity, 0.8 % everywhere else. Ours is the inverse: 99.2 % recall on implementation_leak (on the Dafny subset specifically — the multi-language Phase 9 number 0.488 averages across all 3 languages), 0 % everywhere else. **Mutation-based detection has a structural ceiling on the four attack classes TrojanSpec-Bench was designed to surface.**
+
+### McNemar paired tests, trojan side
+
+**atomic vs MutDafny** (the headline statistical test, n=319 trojans):
+
+| | MutDafny: flag | MutDafny: clean |
+|---|---:|---:|
+| **atomic: flag**  | 115 | **204** |
+| **atomic: clean** |   0 |   0 |
+
+Atomic is a **strict superset** of MutDafny on the trojan side — every MutDafny flag is also an atomic flag, and atomic catches 204 more. McNemar exact two-sided p-value = **0.000 000** (mathematically 2⁻²⁰³; reports as 0 to 6 dp).
+
+**ours vs MutDafny** (n=319 trojans):
+
+| | MutDafny: flag | MutDafny: clean |
+|---|---:|---:|
+| **ours: flag**  | 1   | 117 |
+| **ours: clean** | 114 |  87 |
+
+McNemar p = **0.8953** — statistical tie. The two detectors target different attack patterns; their total recall counts net out almost exactly.
+
+### Interpretation (stated plainly, no spin)
+
+- **MutDafny achieves high recall on `vacuity`** (98.3 %, missing only 2 of 116) **but is structurally blind** to `implementation_leak` (0.8 %), `domain_restriction` (0.0 %), and `predicate_swap` (0.0 %). When the trojan postcondition still discriminates against witness mutants, MutDafny's kill rate stays high and no signal is emitted.
+- **`atomic_monitor` K=2-of-4 achieves 100 % recall across all 4 attack classes** on the Dafny subset, at FPR 5/319 = 1.6 % (Mathlib FPR 3 %, all-language FPR 6.8 %).
+- **The two detectors target different failure modes.** Combining MutDafny with `atomic_monitor` would not change recall — atomic already covers every vacuity trojan MutDafny catches, and 2 it misses besides. The complementarity story is "ours + MutDafny" (token-stripping + tautology), not "atomic + MutDafny" — atomic strictly subsumes MutDafny on this benchmark.
+- **Mutation-based detection has a structural ceiling on the attack classes TrojanSpec-Bench was designed to surface.** This is not a criticism of MutDafny — their target use case (catching weak specs on real-world Dafny programs, where the dominant failure mode is over-loose ensures clauses) is exactly the vacuity case where they excel. It is a statement that adversarially-elicited specifications evade their detection model in 3 of 4 cases.
+
+Choosing the framing from the original prompt's outcomes A/B/C: **outcome C (tie)** for the narrow "ours vs MutDafny F1" question (Δ = 0.010, p = 0.895), with a stronger **outcome A** for the "atomic vs MutDafny" comparison (Δ = 0.462, p ≈ 0). The right framing for the paper is the **complementary three-detector landscape**, not a two-detector head-to-head.
+
+### Compute cost
+
+| step | wall clock | CPU time | $$ |
+|---|---:|---:|---:|
+| MutDafny on 319 honest (concurrency 4) | ~33 min | 131.5 min | 0 (local) |
+| MutDafny on 319 trojan (concurrency 4) | ~16 min | 58.9 min | 0 (local) |
+| **Step 6 analysis** (pure-Python aggregation) | < 1 s | < 1 s | 0 |
+| **Phase 14 total** | **~50 min** | **~190 min** | **0** (no Bedrock) |
+
+Ours is a regex pass over the spec strings — microseconds per triple, effectively zero.
+
+### Edge cases (do not affect F1)
+
+- **5 zero-mutant honest specs** (1.6 %, within the 10 % red-line):
+  `06b34b4a-da46-4c3e-aeec-be1f87610c3c`, `30a0938d-19a3-4b93-8c18-f8324d9ecd05`, `86b80af6-f2ef-4c94-8320-0bddc3715915`, `a222cd6d-07cb-4ba5-a18f-35bf09fe678e`, `a28dfef8-246d-482f-89f4-d37fcd60e1b8`. MutDafny's scanner found no mutation targets in these (likely structurally minimal predicate-only specs). The orchestrator correctly suppresses their flag (we don't claim "spec is weak" from no signal). They don't affect MutDafny's recall numerator (TP) or denominator (the 319 admitted) — they are honest specs and a zero signal correctly produces `clean`, contributing to the FPR=0 result.
+- **0 zero-mutant trojan specs** — every trojan produced at least one decidable mutant.
+- **0 failures, 0 timeouts** across all 638 spec runs.
+
+---
+
+## MutDafny tool provenance (for the paper's related work section)
+
+| component | source | version pinned by experiment |
+|---|---|---|
+| MutDafny parent repo | `github.com/MutDafny/mutdafny` | commit `9766186` |
+| Dafny (Amaral fork) | submodule `github.com/isabel-amaral/dafny` | commit `478b98d951240ac67da5f23ffaefe0a6466bce6a` |
+| Dafny version string | (from `--version`) | `4.10.1+478b98d…` |
+| Z3 | `solver-builds/releases/snapshot-2023-08-02` | `Z3 version 4.12.1 - 64 bit` |
+| .NET SDKs | Microsoft Ubuntu 22.04 repo | 6.0.428 + 8.0.421 (Dafny's `global.json` rollForward picked 8.0.421) |
+| Java | Ubuntu jammy | OpenJDK 21.0.10 (substituting the unavailable openjdk-22-jdk-headless within MutDafny's "Java ≤ 22" requirement) |
+
+---
+
+## Reproduce from a clean clone (Step 8)
+
+Everything is in this repo; no machine-specific state. From a fresh Ubuntu 22.04 box:
+
+```bash
+git clone https://github.com/m-zest/TrojanSpec-Bench-v1.0.git
+cd TrojanSpec-Bench-v1.0
+git checkout main   # or v0.4.0 / v0.4.1-when-tagged
+
+# 1. usual TrojanSpec setup (~5 min)
+python3 -m venv venv && ./venv/bin/pip install -e ".[dev]"
+
+# 2. install MutDafny + bundled Dafny fork + Z3 4.12.1 (~20 min, ~600 MB)
+bash scripts/install_mutdafny.sh
+
+# 3. run Phase 14 end-to-end (~50 min wall clock, $0 Bedrock)
+bash scripts/run_phase14.sh
+```
+
+Re-derives the three result JSON/JSONLs into `data/phase14_*` and produces the head-to-head into `data/phase14_h2h_summary.json`. Results are deterministic w.r.t. the MutDafny pin in `install_mutdafny.sh` (commit `9766186` + Dafny submodule `478b98d`) and the seed `2026` for the 5-pair sanity sample.
+
+### Where to find every artifact
+
+| file | content |
+|---|---|
+| `MUTDAFNY_COMPARISON.md` (this file) | full investigation log, every step |
+| `docs/mutdafny_comparison.md` | 200–400 word writeup for the paper's related work |
+| `scripts/install_mutdafny.sh` | one-time install of MutDafny + deps |
+| `scripts/run_phase14.sh` | end-to-end orchestrator (extract → bulk × 2 → compare) |
+| `scripts/14_mutdafny_extract_pairs.py` | step 3 (extract 319 .dfy pairs from v4 tarball) |
+| `scripts/14_mutdafny_batch.py` | steps 4 + 5 (parallel MutDafny runs) |
+| `scripts/14_mutdafny_compare.py` | step 6 (head-to-head F1 + McNemar) |
+| `data/phase14_mutdafny_honest_results.jsonl` | step 4 raw (319 rows) |
+| `data/phase14_mutdafny_trojan_results.jsonl` | step 5 raw (319 rows) |
+| `data/phase14_mutdafny_honest_summary.json` | step 4 aggregate |
+| `data/phase14_mutdafny_trojan_summary.json` | step 5 aggregate |
+| `data/phase14_h2h_summary.json` | step 6 head-to-head — every number above traces here |
+
+### What the paper needs to add
+
+1. **Citation**: Amaral, Mendes, Campos — *MutDafny: A Mutation-Based Approach to Assess Dafny Specifications*, arXiv:2511.15403, ICSE 2026. (The original task prompt mis-attributed this as "Pereira et al." — fix that in the draft.)
+2. **Related-work paragraph**: `docs/mutdafny_comparison.md` (200–400 words) is drop-in.
+3. **Table row(s)**: in the comparison table, add MutDafny with the Dafny-subset numbers (F1 0.530 / R 0.361 / FPR 0.000). The atomic-monitor row already in the paper is dominant.
+4. **One-line acknowledgement** in the SpecGuard discussion section that the static `mutation_coverage` detector ties MutDafny on Dafny (Δ = 0.010, McNemar p = 0.895) while covering Lean and Verus that MutDafny does not.

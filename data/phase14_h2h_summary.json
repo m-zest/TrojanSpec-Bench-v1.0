@@ -1,0 +1,103 @@
+{
+  "n_common_dafny": 319,
+  "ours_metrics_dafny": {
+    "tp": 118,
+    "fp": 0,
+    "tn": 319,
+    "fn": 201,
+    "precision": 1.0,
+    "recall": 0.3699,
+    "f1": 0.54,
+    "fpr": 0.0
+  },
+  "mutdafny_metrics_dafny": {
+    "tp": 115,
+    "fp": 0,
+    "tn": 319,
+    "fn": 204,
+    "precision": 1.0,
+    "recall": 0.3605,
+    "f1": 0.53,
+    "fpr": 0.0
+  },
+  "atomic_metrics_dafny": {
+    "tp": 319,
+    "fp": 5,
+    "tn": 314,
+    "fn": 0,
+    "precision": 0.9846,
+    "recall": 1.0,
+    "f1": 0.9922,
+    "fpr": 0.0157
+  },
+  "delta_f1_atomic_minus_mutdafny": 0.4622,
+  "delta_f1_ours_minus_mutdafny": 0.01,
+  "per_attack_recall": {
+    "domain_restriction": {
+      "n_trojans": 62,
+      "ours_recall": 0.0,
+      "ours_flagged": 0,
+      "mutdafny_recall": 0.0,
+      "mutdafny_flagged": 0,
+      "atomic_recall": 1.0,
+      "atomic_flagged": 62
+    },
+    "implementation_leak": {
+      "n_trojans": 119,
+      "ours_recall": 0.9916,
+      "ours_flagged": 118,
+      "mutdafny_recall": 0.0084,
+      "mutdafny_flagged": 1,
+      "atomic_recall": 1.0,
+      "atomic_flagged": 119
+    },
+    "predicate_swap": {
+      "n_trojans": 22,
+      "ours_recall": 0.0,
+      "ours_flagged": 0,
+      "mutdafny_recall": 0.0,
+      "mutdafny_flagged": 0,
+      "atomic_recall": 1.0,
+      "atomic_flagged": 22
+    },
+    "vacuity": {
+      "n_trojans": 116,
+      "ours_recall": 0.0,
+      "ours_flagged": 0,
+      "mutdafny_recall": 0.9828,
+      "mutdafny_flagged": 114,
+      "atomic_recall": 1.0,
+      "atomic_flagged": 116
+    }
+  },
+  "contingency_atomic_vs_mutdafny_trojan_side": {
+    "atomic_AND_mutdafny": 115,
+    "atomic_only": 204,
+    "mutdafny_only": 0,
+    "neither": 0
+  },
+  "mcnemar_p_atomic_vs_mutdafny_trojan": 0.0,
+  "contingency_ours_vs_mutdafny_trojan_side": {
+    "ours_AND_mutdafny": 1,
+    "ours_only": 117,
+    "mutdafny_only": 114,
+    "neither": 87
+  },
+  "mcnemar_p_ours_vs_mutdafny_trojan": 0.895345,
+  "mutdafny_compute_time_dafny_subset": {
+    "median_sec": 23.14,
+    "p95_sec": 27.6,
+    "total_cpu_sec": 11423.4,
+    "total_cpu_min": 190.4
+  },
+  "edge_cases": {
+    "mutdafny_zero_mutant_honest": [
+      "06b34b4a-da46-4c3e-aeec-be1f87610c3c",
+      "30a0938d-19a3-4b93-8c18-f8324d9ecd05",
+      "86b80af6-f2ef-4c94-8320-0bddc3715915",
+      "a222cd6d-07cb-4ba5-a18f-35bf09fe678e",
+      "a28dfef8-246d-482f-89f4-d37fcd60e1b8"
+    ],
+    "mutdafny_zero_mutant_trojan": []
+  }
+}
