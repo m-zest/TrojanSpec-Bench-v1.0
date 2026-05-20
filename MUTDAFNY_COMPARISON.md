@@ -184,3 +184,16 @@ Append to `.claude/settings.local.json` permissions:
 Kill rate = 34/36 = **0.944** → above the 0.4 threshold, so `mutdafny_flag = False` → MutDafny would correctly NOT flag this honest spec as weak. Toolchain works end-to-end.
 
 **Dafny version delta noted:** MutDafny's fork reports `4.10.1+478b98d…`; our Phase 7 used Dafny 4.11. Will be addressed by the 5-pair sanity check before Step 4 bulk run.
+
+---
+
+## Step 3 — Extract 319 Dafny pairs ✅
+
+| step | result |
+|---|---|
+| `tar -xzf data/v4_backup_20260519_224805.tar.gz -C /tmp/v4_extract` | ✅ 1798 .json files extracted |
+| Cross-reference Phase 9 v2 Dafny IDs against extracted set | ✅ 319/319 found, 0 missing |
+| Compose with `trojanspec.verifiers.compose.compose(preamble, contract, witness, Language.DAFNY)` (the same code path Phase 7 used) | ✅ 319 honest + 319 trojan = **638 .dfy files** at `/tmp/mutdafny_inputs/<triple_id>.{honest,trojan}.dfy` |
+| 5-pair sanity check under MutDafny's Dafny 4.10.1 fork | **✅ 5/5 honest verify, 5/5 trojan verify (under each side's own spec)** |
+
+Sanity-sample triple_ids (seed=2026): `0cc1ffb8…`, `57942acf…`, `3c01ae25…`, `7ca7d90d…`, `b6f2796e…`. Every one passes both honest and trojan verification under their Dafny 4.10.1 — the 4.10/4.11 delta does **not** cause incompatibility on our admitted set.
