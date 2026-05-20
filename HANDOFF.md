@@ -101,7 +101,7 @@ vacuity 348, domain_restriction 187, predicate_swap 112.
      │ Phase 10a–i ablations (this is where the science happens)
      │ Phase 11 Mathlib FPR calibration
      ▼
-[paper-ready numbers, figures, and the v0.2.0 release]
+[paper-ready numbers, figures, and the v0.4.0 release]
 ```
 
 ### 4.1 Generation (Phase 5)

@@ -1,7 +1,7 @@
 # TrojanSpec-Bench — Status & Handoff
 
 **Updated:** 2026-05-19
-**Branch:** `claude/professional-search-interface-MCp22` (HEAD pushed)
+**Branch:** `main` (tag `v0.4.0`)
 **Reproduce:** `bash scripts/reproduce.sh` (idempotent; reads
 [`docs/REPRODUCIBILITY.md`](docs/REPRODUCIBILITY.md) for env vars).
 

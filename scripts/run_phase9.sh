@@ -7,12 +7,14 @@ set -uo pipefail
 cd /home/ubuntu/TrojanSpec-Bench-v1.0
 export PATH="$PATH:$HOME/.dotnet/tools:$HOME/.elan/bin"
 PY=./venv/bin/python
-BR=claude/professional-search-interface-MCp22
-gitci(){ git -c user.name="Mohammad Zeeshan" -c user.email="hdglit@inf.elte.hu" \
-  add -A ":!data/triples_v1" ":!data/triples_xfamily_v1" ":!data/*.tar.gz"; \
-  git -c user.name="Mohammad Zeeshan" -c user.email="hdglit@inf.elte.hu" \
-  commit --author="Mohammad Zeeshan <hdglit@inf.elte.hu>" -q -m "$1" 2>/dev/null \
-  && git push origin "$BR" 2>&1 | tail -1 || echo "(nothing to commit: $1)"; }
+BR="main"
+gitci() {
+  local msg="$1"
+  git add -A
+  if ! git diff --cached --quiet; then
+    git commit -m "$msg" || true
+  fi
+}
 step(){ echo "=== $1 $(date -u +%H:%M:%S) ==="; }
 
 step "H phase9 eval (5 detectors x 1024 trojan + 1024 honest, c=4)"

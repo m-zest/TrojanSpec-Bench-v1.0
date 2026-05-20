@@ -94,7 +94,7 @@ Five detectors over a triple-like view (`nl_requirement`, `original_spec`,
 
 ```bash
 git clone <repo> && cd TrojanSpec-Bench-v1.0
-git checkout claude/professional-search-interface-MCp22
+git checkout v0.4.0   # or: git checkout main
 cp .env.example .env       # add AWS_ACCESS_KEY_ID / SECRET / DEFAULT_REGION
 bash scripts/reproduce.sh  # idempotent; resumable; banner-printed
 ```
