@@ -120,3 +120,50 @@ And one important documented finding:
   not standalone defenders.
 
 ![cost vs F1](../figures/phase10_beat_ssc.png)
+
+## 10i — Atomic-criteria monitor (decomposed verdicts beat coarse SSC)
+
+Phase 10h closed without breaking the 0.871 F1 ceiling because both SSC
+and `monitor_consensus` ask a single coarse `FAITHFUL / UNFAITHFUL`
+question. The FormalJudge (arXiv:2602.11136) and Epistemic Ensemble
+(arXiv:2506.10903) literature reports that decomposing into independent
+atomic Yes/No questions lifts F1 by ~16.6 % on specification-evaluation
+tasks. We tested it.
+
+For each spec we ask Sonnet **four atomic Yes/No questions** in parallel
+and flag whenever any K of them say NO:
+
+- **C1 completeness** — does the spec cover every NL clause?
+- **C2 independence** — does the spec avoid `axiom`/`opaque`/`external_body`/`{:axiom}`?
+- **C3 logical_fidelity** — are predicates/operators correctly oriented to NL?
+- **C4 consistency** — is the ensures non-vacuous and self-consistent?
+
+Cost: 8 calls/triple × 1024 admitted = 8192 Sonnet calls, 0 malformed.
+5-fold CV picks **K\* = 2 on every fold**; the continuous-threshold sweep
+collapses to the same answer.
+
+| operating point | precision | recall | F1 | FPR | LLM calls / side |
+|---|---:|---:|---:|---:|---:|
+| SSC baseline (Phase 10f)      | 0.771 | 1.000 | 0.871 | 0.297 | 2 |
+| `monitor_consensus` (Phase 9) | 0.771 | 1.000 | 0.871 | 0.297 | 3 |
+| atomic K = 1 of 4              | 0.768 | 1.000 | 0.868 | 0.303 | 4 |
+| **atomic K = 2 of 4**          | **0.936** | **1.000** | **0.967** | **0.068** | 4 |
+| atomic K = 3 of 4              | 0.988 | 0.884 | 0.933 | 0.011 | 4 |
+| atomic K = 4 of 4              | 1.000 | 0.396 | 0.568 | 0.000 | 4 |
+| **atomic C3 alone (1 question)**| **0.953** | **0.998** | **0.975** | **0.049** | 2 |
+
+5-fold cross-validated **F1 = 0.967 ± 0.005** (test, K\* = 2). Per-language
+F1 spread shrinks to **0.056** (Dafny 0.992 / Lean 0.970 / Verus 0.937) —
+about ⅙ of SSC's 0.31 spread. All four attack families clear F1 ≥ 0.937
+at 100 % recall.
+
+**Verdict — WIN.** The atomic decomposition beats SSC on the same data
+with the same model: +0.096 F1 and a 4.4× FPR reduction (0.297 → 0.068).
+The C3-alone Pareto point (F1 0.975 at 2 calls/side, equal cost to SSC)
+is the cheapest detector that breaks the 0.871 ceiling.
+
+See [`docs/phase10i_atomic_monitor.md`](phase10i_atomic_monitor.md) for
+the full breakdown (per-language, per-attack, per-criterion ablation,
+failure-count distribution).
+
+![atomic vs SSC](../figures/phase10_atomic_vs_ssc.png)

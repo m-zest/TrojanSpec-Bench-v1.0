@@ -46,7 +46,7 @@ harness**, and the companion defender **SpecGuard** (5 detectors, evaluated in P
 | 5a / 5b generation | 1500 + 298 triples (Bedrock Sonnet 4.6 main; Haiku 4.5 + Llama-3.3 70B ablation) | restore `data/v4_backup_*.tar.gz` → `data/triples/`, `data/triples_xfamily/` |
 | 7 verifier admission | **57.0%** overall (1024 / 1798); **Dafny+Lean 61.3%** (gate ≥50% cleared) | `data/phase7_admission_report.json` |
 | 9 SpecGuard | `monitor_consensus` **F1 = 0.871** (R 1.000, P 0.771, FPR 0.297); `axiom_audit` **F1 = 0.492** after the multi-language + preamble fix (100% recall on `implementation_leak`) | `data/phase9_metrics_v2.json`, [`docs/phase9_detector_evaluation.md`](docs/phase9_detector_evaluation.md) |
-| 10 ablations | **1 monitor = 3 monitors in F1 (0.900); SSC baseline = monitor_consensus (F1 0.871 at 2/3 the cost); adaptive-attack drops `axiom_audit` recall 100% → 31.6%**; ensemble grid → `monitor_consensus` alone is F1-optimal; threshold transfers perfectly across languages; Haiku trojans easier to detect | `data/phase10_*`, [`docs/phase10_ablations.md`](docs/phase10_ablations.md) |
+| 10 ablations | **Atomic-criteria monitor (Phase 10i) breaks the 0.871 ceiling: K = 2 of 4 → F1 0.967 (P 0.936, R 1.000, FPR 0.068; 5-fold CV F1 0.967 ± 0.005); C3-alone variant F1 0.975 at 2 calls/side**; 1 monitor = 3 monitors in F1 (0.900); SSC baseline = monitor_consensus (F1 0.871 at 2/3 the cost); adaptive-attack drops `axiom_audit` recall 100% → 31.6%; ensemble grid → `monitor_consensus` alone is F1-optimal; threshold transfers perfectly across languages; Haiku trojans easier to detect | `data/phase10_*`, [`docs/phase10_ablations.md`](docs/phase10_ablations.md), [`docs/phase10i_atomic_monitor.md`](docs/phase10i_atomic_monitor.md) |
 | 11 Mathlib case study | 100 honest Mathlib lemmas: `axiom_audit` 0/100, `monitor_consensus` 23/100 (LLM-judge FPR on real formal math) | `data/phase11_*`, [`docs/phase11_mathlib_case_study.md`](docs/phase11_mathlib_case_study.md) |
 
 Quickstart in [§ Reproduce](#reproduce). Full env vars / costs / runtimes:
@@ -77,6 +77,7 @@ Five detectors over a triple-like view (`nl_requirement`, `original_spec`,
 | `ghost_leakage` | postcondition references a ghost / spec-only symbol used as a real check | P 1.000, R 0.144, F1 0.253 |
 | `axiom_audit` | unverified surface introduced in `preamble + trojan_spec` not in `original_spec` (Lean `axiom`/`opaque`, Dafny `{:axiom}`/`{:extern}`, Verus `external_body` / uninterpreted `spec fn`) | **P 0.742, R 0.368, F1 0.492**; R = 1.000 on `implementation_leak` |
 | `monitor_consensus` | 3 Bedrock monitors (Sonnet + Haiku + Llama) vote FAITHFUL/UNFAITHFUL on `trojan_spec` given the NL; majority unfaithful → MALICIOUS | **P 0.771, R 1.000, F1 0.871** |
+| `atomic_monitor` (Phase 10i) | Sonnet answers 4 atomic Yes/No criteria (C1 completeness, C2 independence, C3 logical-fidelity, C4 consistency); flag if ≥ 2 fail (K\* = 2 on every CV fold) | **P 0.936, R 1.000, F1 0.967, FPR 0.068**; per-language F1 ≥ 0.937; C3 alone = F1 0.975 at SSC's cost |
 
 `combined_risk` = weighted mean of detector severities; any single MALICIOUS forces overall MALICIOUS. Combined-risk AUC on Phase 9 = **0.793**, paired Δrisk **+0.440**.
 
