@@ -158,3 +158,29 @@ Append to `.claude/settings.local.json` permissions:
 ```
 
 (or a more permissive `"/home/ubuntu/tools/mutdafny/**"` glob if your settings format allows it).
+
+---
+
+## Step 2 — Smoke test (after new allow-rules) ✅
+
+| check | result |
+|---|---|
+| `dotnet Dafny.dll --version` | `4.10.1+478b98d951240ac67da5f23ffaefe0a6466bce6a` |
+| `./z3 --version` | `Z3 version 4.12.1 - 64 bit` |
+| `mutdafny.dll --help` | n/a — it's a Dafny **plugin**, not a standalone (confirmed via `libhostpolicy.so` error: framework-dependent plugin) |
+| MutDafny ships a built-in sample? | **No.** `run.sh`'s USAGE example references a DafnyBench path (sibling clone), not an in-repo sample |
+| Sanity-verify our composed sample.dfy under their Dafny | ✅ `Dafny program verifier finished with 1 verified, 0 errors` |
+| `./run.sh ~/tools/mutdafny/test_input/sample.dfy` end-to-end | ✅ ran ~30 s |
+
+**Result on the smallest Dafny sanity triple** (`7b53f180-...`, `predicate_swap`, HONEST side composed):
+
+| bucket | count |
+|---|---:|
+| `mutants/alive` | **0** |
+| `mutants/killed` | **34** |
+| `mutants/timed-out` | 0 |
+| `mutants/invalid` | 2 (couldn't compile) |
+
+Kill rate = 34/36 = **0.944** → above the 0.4 threshold, so `mutdafny_flag = False` → MutDafny would correctly NOT flag this honest spec as weak. Toolchain works end-to-end.
+
+**Dafny version delta noted:** MutDafny's fork reports `4.10.1+478b98d…`; our Phase 7 used Dafny 4.11. Will be addressed by the 5-pair sanity check before Step 4 bulk run.
