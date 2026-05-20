@@ -151,6 +151,8 @@ MALICIOUS forces overall MALICIOUS. AUC 0.793, paired Δrisk +0.440.
 | 10h | Can SpecGuard *actually* beat SSC (F1 0.871)? | **No on F1.** All 5 hypotheses (static-only Pareto, SSC on Phase 10g adaptive, cross-language stability, LogReg-over-5-features, unanimous-monitor filter) tie SSC. Ceiling is *honest-seed looseness*, not detector quality. SpecGuard wins on cost-Pareto + interpretable evidence. | §10h |
 | **10i** | **Does atomic decomposition of the SSC question beat coarse SSC?** | **YES.** Full-set F1 **0.967** (P 0.936, R 1.000, **FPR 0.068**); 5-fold CV F1 **0.967 ± 0.005**, K*=2 on every fold; per-language F1 spread 0.056 (vs SSC 0.31); all 4 attack families ≥ 0.937 at R=1.000. **C3 logical_fidelity alone reaches F1 0.975 at SSC's cost.** | **`docs/phase10i_atomic_monitor.md`** |
 | 11 | What's the FPR on real formal mathematics? | 100 honest Mathlib lemmas → `axiom_audit` **0/100**, `monitor_consensus` 23/100 (LLM-judge FPR baseline) | `docs/phase11_mathlib_case_study.md` |
+| 12 | Can someone interactively try the detector? | Live Gradio app at **[`m-zest/specguard-demo`](https://huggingface.co/spaces/m-zest/specguard-demo)** running Phase 10i atomic-criteria K=2-of-4 against Bedrock Sonnet 4.6; 3 pre-loaded examples; optional static-detector panel | `scripts/demo_gradio.py`, `hf_space_build/` |
+| 13 | Is the dataset publicly available? | **[`m-zest/trojanspec-bench`](https://huggingface.co/datasets/m-zest/trojanspec-bench)** — 1024 admitted triples, parquet, paper-grade dataset card, CC BY 4.0 | `scripts/13_hf_dataset_release.py`, `docs/hf_dataset_card.md` |
 
 ---
 
