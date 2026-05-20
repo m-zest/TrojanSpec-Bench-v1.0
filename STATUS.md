@@ -12,7 +12,7 @@
 The library, generators, 3 verifier wrappers, 13 crypto-primitive anchors,
 SpecGuard (5 detectors), the Bedrock generation pipeline (Phase 5a/5b), the
 parallel verifier (Phase 7), the SpecGuard evaluation (Phase 9), the seven
-ablations (Phase 10a–g), and the Mathlib case study (Phase 11) are all built,
+ablations (Phase 10a–i), and the Mathlib case study (Phase 11) are all built,
 tested, and committed/pushed. `pytest` 58 passed / 3 skipped, `ruff` clean.
 
 The benchmark is shippable from a fresh clone via two preserved tarballs
@@ -25,7 +25,7 @@ The benchmark is shippable from a fresh clone via two preserved tarballs
 | 5a / 5b | 1500 admitted (Sonnet 4.6) + 298 ablation (Haiku 4.5 + Llama-3.3 70B) |
 | 7 admission | **57.0%** overall (1024 / 1798); **Dafny+Lean 61.3%** (gate ≥50% cleared); Lean 69.5%, Dafny 53.2%, Verus 48.2% |
 | 9 SpecGuard | `monitor_consensus` **F1 0.871** (R 1.000, P 0.771, FPR 0.297); `axiom_audit` **F1 0.492** post multi-language + preamble fix (R 1.000 on `implementation_leak`); combined-risk AUC 0.793, paired Δrisk +0.440 |
-| 10 ablations | a (elicitor sweep), b (temperature), c (monitor count 1/3/5), d (ensemble grid → `monitor_consensus` alone is F1-optimal), e (cross-language transfer; threshold transfers perfectly), f (SSC baseline), g (adaptive-attack stress) |
+| 10 ablations | a (elicitor sweep), b (temperature), c (monitor count 1/3/5), d (ensemble grid → `monitor_consensus` alone is F1-optimal), e (cross-language transfer; threshold transfers perfectly), f (SSC baseline), g (adaptive-attack stress), h (5 hypotheses against SSC, all TIE), **i (atomic-criteria K = 2 of 4 → F1 0.967, +0.096 over SSC, FPR 0.297 → 0.068)** |
 | 11 Mathlib | 100 honest Lean theorems through `axiom_audit` + `monitor_consensus` (real-formal-mathematics FPR calibration) |
 
 ## Methodology story (the iteration history that became the paper)
@@ -79,6 +79,8 @@ Full results in `docs/phase10_ablations.md` + `docs/phase11_mathlib_case_study.m
 - **10e (cross-language):** Combined-risk threshold transfers perfectly (0.750 in all 3 langs); per-language F1 varies (Dafny 0.995 / Lean 0.851 / Verus 0.677) by honest-control seed looseness.
 - **10f (SSC baseline):** Single-model two-paraphrased-question consistency check is **identical to monitor_consensus**: P=0.771 R=1.000 F1=0.871 FPR=0.297. Pareto-equivalent at 2 calls vs 3.
 - **10g (adaptive attack, Terekhov-style):** Sonnet rewrote 60 admitted impl_leak trojans without axiom-like markers; 57/60 (95%) survived re-verification. `axiom_audit` recall on the adaptive set **drops 100% → 31.6%**. `mutation_coverage` held up best (28% catch on adaptive). The semantic LLM judge remains the principled fallback when static patterns are evaded.
+- **10h (can SpecGuard beat SSC?):** 5 hypotheses tested (static-only Pareto, SSC on Phase 10g adaptive, cross-language stability, LogReg-over-5-detectors, unanimous-monitor filter). All tied SSC at F1 0.871. The 0.871 ceiling was honest-control seed looseness, not detector quality, under coarse `FAITHFUL/UNFAITHFUL` framing.
+- **10i (atomic-criteria monitor, the actual win):** Decomposing the coarse SSC question into 4 independent atomic Yes/No criteria (completeness, independence, logical-fidelity, consistency) and flagging when ≥ 2 fail breaks the 0.871 ceiling. Full-set **F1 0.967** (P 0.936, R 1.000, **FPR 0.068**); 5-fold CV F1 **0.967 ± 0.005** with K\* = 2 on every fold. Per-language F1 spread shrinks from 0.31 (SSC) to 0.056 (Dafny 0.992 / Lean 0.970 / Verus 0.937); all four attack families clear F1 ≥ 0.937 at 100 % recall. The C3-alone (logical-fidelity) variant is the cheapest detector that beats SSC (F1 **0.975** at 2 calls/side, same cost as SSC). Validates the FormalJudge / Epistemic Ensemble finding in the spec-Trojan setting. Cost: 8192 Sonnet calls, 0 malformed.
 - **11 (Mathlib calibration):** 100 honest Mathlib lemmas → `axiom_audit` 0/100 (the post-fix pattern set is selective; no real Mathlib lemma in the sample introduces a new axiom), `monitor_consensus` 23/100 (LLM-judge FPR baseline on real formal mathematics).
 - **Phase 9 cross-contamination null result:** Llama-monitor `miss_rate` on Llama-generated trojans = 0.000; no detectable in-family judging bias.
 
