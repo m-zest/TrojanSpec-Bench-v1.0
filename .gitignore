@@ -96,3 +96,4 @@ Thumbs.db
 # tmpdir that is rmtree'd in `finally`; this rule covers both files and dirs
 # so any other tool that drops `tmp*` scratch never reaches git.
 tmp*
+hf_dataset_build/
